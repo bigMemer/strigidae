@@ -50,7 +50,7 @@ Run inside a beefis pane (a terminal multiplexer whose templates wire panes toge
 
 ## Review analyses
 
-A review analysis is a JSON file that regroups a pull request's changes for a reader: lenses (ways of looking at the change, such as following the call path, or checking what it claims), each holding segments of related spans of lines, with notes. strig loads `.strig/analysis/<number>.json` (relative to where strig runs) when you open pull request `<number>`, or any file with `:analysis <path>`. `:lens` then shows the first lens in place of the Files list: its segments in reading order, with their spans; moving between spans (`j`/`k`, or `:next-span` and `:previous-span` from the diff) takes the diff to each one. `:lens <id>` switches lens, `:lens` closes it. The format is described in [docs/analysis.md](docs/analysis.md).
+A review analysis is a JSON file that regroups a pull request's changes for a reader: lenses (ways of looking at the change, such as following the call path, or checking what it claims), each holding segments of related spans of lines, with notes. strig loads `.strig/analysis/<number>.json` (relative to where strig runs) when you open pull request `<number>`, or any file with `:analysis <path>`. `:lens` then shows the first lens in place of the Files list: its segments in reading order, with their spans; moving between spans (`j`/`k`, or `:next-span` and `:previous-span` from the diff) takes the diff to each one. The lines of the span you're on are marked with a bar in the diff's gutter. `gt` / `gT` switch to the next / previous lens, `:lens <id>` to a given one, and `:lens` closes it. The format is described in [docs/analysis.md](docs/analysis.md).
 
 ## Configuration
 

@@ -144,8 +144,10 @@ type Model struct {
 
 	width, height int
 
-	visual          bool // a line selection is in progress
-	visualBaseIndex int  // base row where it started
+	visual          bool       // a line selection is in progress
+	span            Range      // the lines marked in the gutter (SetSpan)
+	spanCache       spanBounds // where span is in the file shown
+	visualBaseIndex int        // base row where it started
 
 	window scroll.Window // cursor, top row and horizontal offset
 

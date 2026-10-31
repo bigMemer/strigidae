@@ -3,10 +3,10 @@ alice · changes requested · main ← feat/retry · [enhancement] [sync] · rev
 ╭─ Lens 1/2: General Flow ─────────╮╭─ internal/sync/retry.go ─────────────────────────────────────────────────────────╮
 │Where it is called low risk       ││ @@ -0,0 +1,14 @@                                                                 │
 │  client.go:14–15 the new call    ││>      1  +package sync                                                           │
-│  client.go:200–210 · not in the …││       2  +                                                                       │
-│                                  ││       3  +import "context"                                                       │
-│The helper high risk              ││       4  +                                                                       │
-│  Check the backoff is bounded.   ││       5  +// Retry runs fn with exponential backoff.                             │
-│  legacy.go:1–4 (old)             ││       6  +func Retry(ctx context.Context, attempts int, fn func() error) error { │
-│> retry.go:1–14                   ││       7  +    var err error                                                      │
+│  client.go:200–210 · not in the …││┃      2  +                                                                       │
+│                                  ││┃      3  +import "context"                                                       │
+│The helper high risk              ││┃      4  +                                                                       │
+│  Check the backoff is bounded.   ││┃      5  +// Retry runs fn with exponential backoff.                             │
+│  legacy.go:1–4 (old)             ││┃      6  +func Retry(ctx context.Context, attempts int, fn func() error) error { │
+│> retry.go:1–14                   ││┃      7  +    var err error                                                      │
 ╰──────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────────────────╯

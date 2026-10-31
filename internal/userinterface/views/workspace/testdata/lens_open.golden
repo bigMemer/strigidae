@@ -16,7 +16,7 @@ alice · changes requested · main ← feat/retry · [enhancement] [sync] · rev
 │                                  ││           │                                                                      │
 │                                  ││           │ alice · 4h ago  ❤️ 1                                                 │
 │                                  ││           │   Handles flaky links.                                               │
-│                                  ││      15  +    return Retry(ctx, 5, func() error {                                │
+│                                  ││┃     15  +    return Retry(ctx, 5, func() error {                                │
 │                                  ││      16  +        return c.sync(ctx)                                             │
 │                                  ││      17  +    })                                                                 │
 │                                  ││  16  18   }                                                                      │

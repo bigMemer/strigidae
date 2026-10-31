@@ -139,6 +139,8 @@ func (model *Model) rowStyle(i int) (*variant, string) {
 		mark, current = markSelected, 1 // the selection takes the cursor tint
 	case model.searchMarked(i):
 		mark = search.Glyph
+	case model.inSpan(row.baseIndex):
+		mark = markSpan
 	}
 	return &model.styles.variants[current][kind], mark
 }
@@ -187,8 +189,11 @@ func (model *Model) gutterText(i int, mark string, variantStyles *variant) strin
 		}
 	}
 	head := ""
-	if mark == search.Glyph {
-		head, mark = variantStyles.search.Render(mark), "" // only a match is drawn apart from the gutter
+	switch mark {
+	case search.Glyph:
+		head, mark = variantStyles.search.Render(mark), "" // a match and a span are drawn apart from the gutter
+	case markSpan:
+		head, mark = variantStyles.thread[1].Render(mark), ""
 	}
 	return head + variantStyles.gutter.Render(mark+model.relativeCell(i)+numberCell(line.Old, model.numberWidth)+" "+numberCell(line.New, model.numberWidth)+" ") +
 		titleStyle.Render(glyph) + variantStyles.gutter.Render(marker)

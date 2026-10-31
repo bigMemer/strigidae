@@ -209,3 +209,67 @@ func TestLensScreens(test *testing.T) {
 		golden.Assert(test, "lens_narrow", lensed.render(), false)
 	})
 }
+
+func TestLensScrollsBackToTheTop(test *testing.T) {
+	lensed := newLensed(test, 120, 12) // 6 rows for the lens: less than it has
+	lensed.command("lens", "")
+	lensed.press("G")
+	if screen := lensed.screen(); strings.Contains(screen, "Follow the call path") || !strings.Contains(screen, "The helper") {
+		test.Fatalf("at the bottom the lens should show the last segment, not the purpose:\n%s", screen)
+	}
+	lensed.press("g g")
+	if screen := lensed.screen(); !strings.Contains(screen, "Follow the call path") {
+		test.Errorf("back at the first span, the purpose above it is not shown:\n%s", screen)
+	}
+	lensed.press("G", "k")
+	if screen := lensed.screen(); !strings.Contains(screen, "The helper high risk") || !strings.Contains(screen, "Check the backoff") {
+		test.Errorf("the segment's title and annotation are not shown above its first span:\n%s", screen)
+	}
+}
+
+func TestLensKeysSwitchLens(test *testing.T) {
+	lensed := newLensed(test, 120, 30)
+	lensed.press("g t")
+	if lensed.view.lensOpen() {
+		test.Fatal("gt opened a lens although none was open")
+	}
+	lensed.command("lens", "")
+	for _, step := range []struct{ press, want string }{
+		{"g t", "Lens 2/2: Claims"},
+		{"g t", "Lens 1/2: General Flow"},
+		{"g T", "Lens 2/2: Claims"},
+	} {
+		lensed.press(step.press)
+		if screen := lensed.screen(); !strings.Contains(screen, step.want) {
+			test.Errorf("after %s: want %q:\n%s", step.press, step.want, screen)
+		}
+	}
+	if path, _, line := lensed.at(); path != "internal/sync/client.go" || line != 14 {
+		test.Errorf("switching lens did not go to its first span: %s:%d", path, line)
+	}
+	lensed.press("l", "g t") // from the diff pane too
+	if !strings.Contains(lensed.screen(), "Lens 1/2: General Flow") {
+		test.Error("gt from the diff pane did not switch lens")
+	}
+}
+
+func TestLensMarksTheSpanInTheDiff(test *testing.T) {
+	lensed := newLensed(test, 120, 30)
+	lensed.command("lens", "")
+	marked := func() []string {
+		var lines []string
+		for _, line := range strings.Split(lensed.screen(), "\n") {
+			if strings.Contains(line, "┃") {
+				lines = append(lines, line)
+			}
+		}
+		return lines
+	}
+	if got := marked(); len(got) == 0 {
+		test.Fatalf("no line of the span is marked:\n%s", lensed.screen())
+	}
+	lensed.command("lens", "")
+	if got := marked(); len(got) != 0 {
+		test.Errorf("closing the lens left marks:\n%s", strings.Join(got, "\n"))
+	}
+}

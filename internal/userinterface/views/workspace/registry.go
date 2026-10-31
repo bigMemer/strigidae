@@ -161,6 +161,14 @@ func (workspaceBindings *bindings) entries() []actionEntry {
 			level:  levelComment, words: "delete it", rule: deleteRule, diffVisible: true, guard: writeComment, fresh: freshTarget,
 			run: func(view *View, call invocation) tea.Cmd { return view.deleteComment(call.target.comment) },
 		},
+		{
+			Action: keys.Action{Name: "next-lens", Binding: &workspaceBindings.NextLens}, applies: (*View).lensOpen,
+			run: func(view *View, _ invocation) tea.Cmd { return view.stepLens(1) },
+		},
+		{
+			Action: keys.Action{Name: "previous-lens", Binding: &workspaceBindings.PreviousLens}, applies: (*View).lensOpen,
+			run: func(view *View, _ invocation) tea.Cmd { return view.stepLens(-1) },
+		},
 		{Action: keys.Action{Name: "extend-selection-down", Binding: &workspaceBindings.VisualDown}},
 		{Action: keys.Action{Name: "extend-selection-up", Binding: &workspaceBindings.VisualUp}},
 		{Action: keys.Action{Name: "leave-visual-mode", Binding: &workspaceBindings.VisualExit}},

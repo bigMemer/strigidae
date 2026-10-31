@@ -29,6 +29,8 @@ type bindings struct {
 	// at the cursor. The Visual* keys apply while a selection is open.
 	Visual, EditComment, DeleteComment key.Binding
 	VisualDown, VisualUp, VisualExit   key.Binding
+	// NextLens and PreviousLens switch lens while one is open.
+	NextLens, PreviousLens key.Binding
 }
 
 func defaultBindings() bindings {
@@ -56,6 +58,8 @@ func defaultBindings() bindings {
 		VisualDown:    key.NewBinding(key.WithKeys("j", "down"), key.WithHelp("j", "extend selection down")),
 		VisualUp:      key.NewBinding(key.WithKeys("k", "up"), key.WithHelp("k", "extend selection up")),
 		VisualExit:    key.NewBinding(key.WithKeys("esc", "V"), key.WithHelp("esc", "leave visual mode")),
+		NextLens:      bind("g t", "gt", "next lens (while a lens is open)"),
+		PreviousLens:  bind("g T", "gT", "previous lens (while a lens is open)"),
 	}
 }
 
