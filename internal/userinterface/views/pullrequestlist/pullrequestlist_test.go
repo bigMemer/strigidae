@@ -600,3 +600,25 @@ func TestWrapPassedToWorkspaces(test *testing.T) {
 		}
 	}
 }
+
+func TestStartsWithAPullRequestOpen(test *testing.T) {
+	view := New(fakeWith(makePullRequests(3)), github.Repository{Owner: "o", Name: "r"}, nil, theme.New(true), Options{PullRequest: 189})
+	batch, ok := view.Init()().(tea.BatchMsg)
+	if !ok {
+		test.Fatal("Init did not batch the list load with opening the pull request")
+	}
+	var pushed []string
+	for _, command := range batch {
+		if push, ok := command().(userinterface.PushMessage); ok {
+			pushed = append(pushed, push.View.Title())
+		}
+	}
+	if len(pushed) != 1 || pushed[0] != "#189" {
+		test.Errorf("pushed %q, want one #189", pushed)
+	}
+
+	plain := New(fakeWith(makePullRequests(3)), github.Repository{Owner: "o", Name: "r"}, nil, theme.New(true), Options{})
+	if _, ok := plain.Init()().(userinterface.PushMessage); ok {
+		test.Error("without a number Init opened a pull request")
+	}
+}

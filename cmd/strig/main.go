@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/MikePors/strigidae/internal/beefis"
@@ -63,6 +64,10 @@ func run(arguments []string, stdout, stderr io.Writer, dependencies dependencies
 func execute(arguments []string, stdout, stderr io.Writer, dependencies dependencies) error {
 	flags := flag.NewFlagSet("strig", flag.ContinueOnError)
 	flags.SetOutput(stderr)
+	flags.Usage = func() {
+		_, _ = fmt.Fprintln(flags.Output(), "usage: strig [flags] [pull request number]")
+		flags.PrintDefaults()
+	}
 	showVersion := flags.Bool("version", false, "print version and exit")
 	showLogPath := flags.Bool("log-path", false, "print the log file path and exit")
 	showConfigPath := flags.Bool("config-path", false, "print the config file path and exit")
@@ -76,8 +81,9 @@ func execute(arguments []string, stdout, stderr io.Writer, dependencies dependen
 		}
 		return &usageError{} // the flag package has printed the problem and usage
 	}
-	if flags.NArg() > 0 {
-		return &usageError{fmt.Sprintf("unexpected argument %q (did you mean -R %s?)", flags.Arg(0), flags.Arg(0))}
+	pullRequest, err := pullRequestArgument(flags.Args())
+	if err != nil {
+		return err
 	}
 
 	configPath, configErr := configLocation(*configFlag, dependencies)
@@ -121,7 +127,27 @@ func execute(arguments []string, stdout, stderr io.Writer, dependencies dependen
 	application.scheme = chosen
 	application.terminalTheme = terminalTheme
 	application.beefis = *beefisFlag
+	if pullRequest > 0 && application.dashboard {
+		return &usageError{fmt.Sprintf("pull request %d: no repository here (run strig in a checkout, or pass -R owner/repo)", pullRequest)}
+	}
+	application.pullRequest = pullRequest
 	return dependencies.start(application, stderr)
+}
+
+// pullRequestArgument is the optional pull request number after the flags,
+// 189 or #189; zero when there is none.
+func pullRequestArgument(arguments []string) (int, error) {
+	switch {
+	case len(arguments) == 0:
+		return 0, nil
+	case len(arguments) > 1:
+		return 0, &usageError{fmt.Sprintf("unexpected argument %q: give at most one pull request number", arguments[1])}
+	}
+	number, err := strconv.Atoi(strings.TrimPrefix(arguments[0], "#"))
+	if err != nil || number < 1 {
+		return 0, &usageError{fmt.Sprintf("unexpected argument %q (did you mean -R %s?)", arguments[0], arguments[0])}
+	}
+	return number, nil
 }
 
 // resolveTheme loads the theme the config names, or returns nil for the
