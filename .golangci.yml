@@ -47,6 +47,7 @@ linters:
             - "**/internal/clipboard/**"
             - "**/internal/environment/**"
             - "**/internal/gitrepository/**"
+            - "**/internal/gitobjects/**"
             - "**/internal/logging/**"
             - "**/internal/version/**"
           deny:
