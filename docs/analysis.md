@@ -19,7 +19,7 @@ Line numbers on the `RIGHT` side are against `pr.head_sha`; on the `LEFT` side a
 
 `:lens` shows the first lens in place of the Files list, `gt` / `gT` move to the next / previous lens, `:lens <id>` opens a given one, and `:lens` again closes it. The pane lists the lens's segments in the lens's `order` (then any it leaves out), each with its title, risk and annotation, and under each its spans in the segment's `order` (then the rest). A span used by two segments appears under both.
 
-`j`/`k` (and `gg`/`G`) move between spans; the diff pane follows to the span's file and first line, on the old side for `LEFT` spans. The span's lines are marked with a bar in the diff's gutter, from its first line in the diff to its last. `enter` moves focus to the diff; `:next-span` and `:previous-span` work from there. A span outside every hunk is marked "not in the diff" (the diff goes to the closest line), one in a file the pull request does not change "file not changed" (the diff stays where it is).
+`j`/`k` (and `gg`/`G`) move between spans; the diff pane follows to the span's file and puts its first line at the top of the pane, on the old side for `LEFT` spans. The span's lines are marked with a bar in the diff's gutter, from its first line in the diff to its last. `enter` moves focus to the diff; `:next-span` and `:previous-span` work from there. A span outside every hunk is marked "not in the diff" (the diff goes to the closest line), one in a file the pull request does not change "file not changed" (the diff stays where it is).
 
 ## Format
 

@@ -273,3 +273,15 @@ func TestLensMarksTheSpanInTheDiff(test *testing.T) {
 		test.Errorf("closing the lens left marks:\n%s", strings.Join(got, "\n"))
 	}
 }
+
+func TestLensPutsTheSpanAtTheTopOfTheDiff(test *testing.T) {
+	lensed := newLensed(test, 120, 16)
+	lensed.command("lens", "")
+	diffView := lensed.diffView()
+	if diffView.CursorRow() != diffView.Top() {
+		test.Errorf("cursor row %d, top row %d: the span's first line is not at the top", diffView.CursorRow(), diffView.Top())
+	}
+	if line, ok := diffView.Cursor(); !ok || line.Number() != 14 {
+		test.Errorf("cursor on %+v, want line 14", line)
+	}
+}

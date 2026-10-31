@@ -1,24 +1,24 @@
 open #7 Add retry policy to sync client
 alice · changes requested · main ← feat/retry · [enhancement] [sync] · reviewers: bob ?, team core ?, carol ✗, dave •
 ╭─ Lens 1/2: General Flow ─────────╮╭─ internal/sync/client.go ────────────────────────────────────────────────────────╮
-│Follow the call path              ││ @@ -10,8 +10,10 @@ import (                                                      │
-│                                  ││  10  10       "context"                                                          │
-│Where it is called low risk       ││  11  11       "time"                                                             │
-│> client.go:14–15 the new call    ││  12  12 ○ )                                                                      │
-│  client.go:200–210 · not in the …││           ▸ carol 1 comment · 1d ago [resolved] — Nit: unused import.            │
-│                                  ││  13  13                                                                          │
-│The helper high risk              ││  14      -func (c *Client) Sync(ctx context.Context) error {                     │
-│  Check the backoff is bounded.   ││  15      -    return c.retryForever(ctx, c.sync)                                 │
-│  legacy.go:1–4 (old)             ││>     14 ●+func (c *Client) Sync(ctx context.Context) error {                     │
-│  retry.go:1–14                   ││           ▾ bob 2 comments · 4h ago                                              │
-│                                  ││           │ bob · 5h ago  ❤️ 1                                                   │
-│                                  ││           │   Why retry here?                                                    │
-│                                  ││           │                                                                      │
+│Follow the call path              ││>     14 ●+func (c *Client) Sync(ctx context.Context) error {                     │
+│                                  ││           ▾ bob 2 comments · 4h ago                                              │
+│Where it is called low risk       ││           │ bob · 5h ago  ❤️ 1                                                   │
+│> client.go:14–15 the new call    ││           │   Why retry here?                                                    │
+│  client.go:200–210 · not in the …││           │                                                                      │
 │                                  ││           │ alice · 4h ago  ❤️ 1                                                 │
-│                                  ││           │   Handles flaky links.                                               │
-│                                  ││┃     15  +    return Retry(ctx, 5, func() error {                                │
-│                                  ││      16  +        return c.sync(ctx)                                             │
-│                                  ││      17  +    })                                                                 │
+│The helper high risk              ││           │   Handles flaky links.                                               │
+│  Check the backoff is bounded.   ││┃     15  +    return Retry(ctx, 5, func() error {                                │
+│  legacy.go:1–4 (old)             ││      16  +        return c.sync(ctx)                                             │
+│  retry.go:1–14                   ││      17  +    })                                                                 │
 │                                  ││  16  18   }                                                                      │
 │                                  ││  17  19                                                                          │
+│                                  ││ @@ -40,5 +42,7 @@ func (c *Client) sync(ctx context.Context) error {             │
+│                                  ││  40  42       if err := c.conn.Ping(ctx); err != nil {                           │
+│                                  ││  41  43           return err                                                     │
+│                                  ││  42  44       }                                                                  │
+│                                  ││      45  +    // A very long comment line that only fits in the pane after scroll│
+│                                  ││      46  +    c.last = time.Now()                                                │
+│                                  ││  43  47       return c.push(ctx)                                                 │
+│                                  ││  44  48   }                                                                      │
 ╰──────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────────────────╯
