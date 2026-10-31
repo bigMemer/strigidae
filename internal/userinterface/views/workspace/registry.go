@@ -230,6 +230,11 @@ func (workspaceBindings *bindings) entries() []actionEntry {
 			run:   func(view *View, call invocation) tea.Cmd { return view.ask(call.arguments, call.target.lines) },
 		},
 		{
+			Action: keys.Action{Name: "analysis", Command: "analysis"},
+			level:  levelPullRequest,
+			run:    func(view *View, call invocation) tea.Cmd { return view.analysisCommand(call.arguments) },
+		},
+		{
 			Action: keys.Action{Name: "checks", Command: "checks"},
 			level:  levelPullRequest,
 			run:    func(view *View, _ invocation) tea.Cmd { return view.checksCommand() },

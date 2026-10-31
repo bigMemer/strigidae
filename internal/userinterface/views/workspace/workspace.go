@@ -6,6 +6,7 @@ package workspace
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"charm.land/bubbles/v2/key"
@@ -116,9 +117,11 @@ type View struct {
 
 	viewedState map[string]*viewedToggle // by path; see viewedToggle
 
-	wrap             bool             // the diff pane wraps long lines
-	hunkMarks        *HunkMarks       // hunks marked reviewed; shared with other workspaces by WithHunkMarks
-	questions        *Questions       // questions asked with :ask; nil when asking is off
+	wrap             bool       // the diff pane wraps long lines
+	hunkMarks        *HunkMarks // hunks marked reviewed; shared with other workspaces by WithHunkMarks
+	questions        *Questions // questions asked with :ask; nil when asking is off
+	analyses         *Analyses  // review analyses loaded; shared with other workspaces by WithAnalyses
+	readFile         func(path string) ([]byte, error)
 	hunkFingerprints fingerprintCache // fingerprints of the last file asked about
 
 	window  scroll.Window  // Files pane: over rows
@@ -177,12 +180,16 @@ func New(client github.Client, repository github.Repository, number int, options
 		edit:           execEditor,
 		drafts:         map[string]string{},
 		viewedState:    map[string]*viewedToggle{},
+		readFile:       os.ReadFile,
 	}
 	for _, option := range options {
 		option(view)
 	}
 	if view.hunkMarks == nil {
 		view.hunkMarks = NewHunkMarks()
+	}
+	if view.analyses == nil {
+		view.analyses = NewAnalyses()
 	}
 	view.markdownRenderer = markdown.New(view.theme)
 	view.overview = newOverview()
@@ -215,7 +222,7 @@ func (view *View) CapturesKeys() bool {
 func (view *View) visualActive() bool { return view.filePane.VisualActive() }
 
 // Init implements userinterface.View.
-func (view *View) Init() tea.Cmd { return view.load() }
+func (view *View) Init() tea.Cmd { return tea.Batch(view.load(), view.autoloadAnalysis()) }
 
 // Resumed implements userinterface.Resumer. Nothing to do yet: the workspace refreshes
 // only on R.
@@ -279,6 +286,11 @@ func (view *View) Update(message tea.Msg) (userinterface.View, tea.Cmd) {
 			return view, nil
 		}
 		return view, view.diffLoaded(message)
+	case analysisReadMessage:
+		if message.owner != view {
+			return view, nil
+		}
+		return view, view.analysisRead(message)
 	case answerMessage:
 		return view, view.answered(message)
 	case askSentMessage:
