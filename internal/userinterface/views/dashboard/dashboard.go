@@ -92,6 +92,9 @@ type View struct {
 	// from here, so they survive closing and reopening a pull request.
 	hunkMarks *workspace.HunkMarks
 	questions *workspace.Questions
+	// analyses keeps the review analyses loaded in every workspace opened
+	// from here.
+	analyses *workspace.Analyses
 
 	notice string // shown once as an info message when the view starts
 
@@ -147,6 +150,7 @@ func New(client github.Client, tabs []config.Tab, activeTheme theme.Theme, optio
 		notice:    options.Notice,
 		timeouts:  options.Timeouts,
 		questions: options.Questions,
+		analyses:  workspace.NewAnalyses(),
 		clipboard: options.Clipboard,
 		hunkMarks: workspace.NewHunkMarks(),
 	}
@@ -395,6 +399,7 @@ func (view *View) openSelected() tea.Cmd {
 		workspace.WithWrap(view.options.Wrap()),
 		workspace.WithTimeouts(view.timeouts),
 		workspace.WithQuestions(view.questions),
+		workspace.WithAnalyses(view.analyses),
 		workspace.WithClipboard(view.clipboard),
 	))
 }

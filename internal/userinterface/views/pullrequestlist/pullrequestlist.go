@@ -93,7 +93,10 @@ type View struct {
 	// from here, so they survive closing and reopening a pull request.
 	hunkMarks *workspace.HunkMarks
 	questions *workspace.Questions
-	bindings  bindings
+	// analyses keeps the review analyses loaded in every workspace opened
+	// from here.
+	analyses *workspace.Analyses
+	bindings bindings
 
 	tabs          []tab
 	active        int
@@ -165,6 +168,7 @@ func New(client github.Client, repository github.Repository, configured []config
 		timeouts:  options.Timeouts,
 		clipboard: options.Clipboard,
 		questions: options.Questions,
+		analyses:  workspace.NewAnalyses(),
 		hunkMarks: workspace.NewHunkMarks(),
 		tabs:      tabs,
 	}
@@ -435,6 +439,7 @@ func (view *View) openSelected() tea.Cmd {
 		workspace.WithWrap(view.options.Wrap()),
 		workspace.WithTimeouts(view.timeouts),
 		workspace.WithQuestions(view.questions),
+		workspace.WithAnalyses(view.analyses),
 		workspace.WithClipboard(view.clipboard),
 	))
 }
