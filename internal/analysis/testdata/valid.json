@@ -1,0 +1,58 @@
+{
+  "schema_version": "prreview/analysis@1",
+  "generated_at": "2026-10-30T18:00:00Z",
+  "generator": "test",
+  "pr": {
+    "repo": "acme/widgets",
+    "number": 7,
+    "title": "Retry sync on timeout",
+    "head_sha": "1111111111111111111111111111111111111111",
+    "base_sha": "2222222222222222222222222222222222222222",
+    "merge_base": "3333333333333333333333333333333333333333"
+  },
+  "hunks": {
+    "retry-loop": { "path": "internal/sync/client.go", "side": "RIGHT", "start": 10, "end": 24, "label": "retry loop" },
+    "old-call": { "path": "internal/sync/client.go", "side": "LEFT", "start": 12, "end": 13 },
+    "caller": { "path": "cmd/sync/main.go", "side": "RIGHT", "start": 40, "end": 52, "label": "unchanged caller", "context_only": true },
+    "retry-test": { "path": "internal/sync/client_test.go", "side": "RIGHT", "start": 1, "end": 30 },
+    "readme": { "path": "README.md", "side": "RIGHT", "start": 5, "end": 9 }
+  },
+  "edges": [
+    { "from": "caller", "to": "retry-loop", "kind": "calls" },
+    { "from": "retry-test", "to": "retry-loop", "kind": "tests", "note": "covers the timeout path only" },
+    { "from": "retry-loop", "to": "old-call", "kind": "supersedes" }
+  ],
+  "lenses": [
+    {
+      "id": "flow",
+      "title": "General Flow",
+      "purpose": "Follow the call path",
+      "order": ["entry", "retry"],
+      "segments": [
+        {
+          "id": "retry",
+          "title": "The retry loop",
+          "risk": "high",
+          "annotation": "Check the backoff is bounded.",
+          "hunks": ["retry-loop", "old-call"],
+          "notes": { "retry-loop": "Sleeps between attempts." },
+          "order": ["old-call", "retry-loop"]
+        },
+        { "id": "entry", "title": "Where it is called", "risk": "low", "hunks": ["caller"] }
+      ]
+    },
+    {
+      "id": "claims",
+      "title": "Claim Justifications",
+      "segments": [
+        {
+          "id": "retries",
+          "title": "Claim: sync retries on timeout",
+          "risk": "medium",
+          "hunks": ["retry-loop", "retry-test", "readme"],
+          "notes": { "retry-loop": "Here under a different lens: the claim itself.", "readme": "Documents it." }
+        }
+      ]
+    }
+  ]
+}
