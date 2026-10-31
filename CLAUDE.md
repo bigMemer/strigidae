@@ -39,6 +39,7 @@ internal/github/                        domain types, the Client interface, type
 internal/github/network/                real Client (go-gh); the only package that talks to the network
 internal/github/fake/                   in-memory Client for tests and demos
 internal/gitrepository/                 infer the GitHub repository (host + owner/name) from a checkout's remotes
+internal/gitobjects/                    read files at a commit from the local clone (git cat-file), for spans outside the diff
 internal/diff/                          unified-diff parsing and modelling (pure, no user interface)
 internal/config/                        config file loading and validation
 internal/options/                       yes/no options shared by the config file and `:set` (non-UI)
@@ -64,7 +65,7 @@ cmd/strig ──► userinterface/views/* ──► userinterface/components ─
 ```
 
 - `internal/userinterface`, `userinterface/keys`, `userinterface/theme` and `userinterface/components` **never import `userinterface/views/*`**. Views may import other views, without cycles.
-- Non-UI packages (`github`, `beefis`, `diff`, `config`, `options`, `editor`, `environment`, `gitrepository`, `logging`, `version`) never import UI packages.
+- Non-UI packages (`github`, `beefis`, `diff`, `config`, `options`, `editor`, `environment`, `gitrepository`, `gitobjects`, `logging`, `version`) never import UI packages.
 - Only `cmd/strig` imports `internal/github/network`.
 
 ## Process-wide rules
