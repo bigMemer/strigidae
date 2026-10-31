@@ -250,7 +250,10 @@ func (pane *diffPane) Context() diffview.Context { return pane.diffView.Context(
 
 func (pane *diffPane) GotoLine(side github.DiffSide, line int) {
 	pane.diffView.GotoSideLine(side, line)
+	pane.diffView.ScrollCursorTop()
 }
+
+func (pane *diffPane) SetSpan(span diffview.Range) { pane.diffView.SetSpan(span) }
 
 func (pane *diffPane) VisualStart() bool          { return pane.diffView.VisualStart() }
 func (pane *diffPane) VisualActive() bool         { return pane.diffView.VisualActive() }

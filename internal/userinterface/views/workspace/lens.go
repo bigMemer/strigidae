@@ -14,6 +14,7 @@ import (
 	"github.com/MikePors/strigidae/internal/analysis"
 	"github.com/MikePors/strigidae/internal/github"
 	"github.com/MikePors/strigidae/internal/userinterface"
+	"github.com/MikePors/strigidae/internal/userinterface/components/diffview"
 	"github.com/MikePors/strigidae/internal/userinterface/keys"
 	"github.com/MikePors/strigidae/internal/userinterface/terminaltext"
 )
@@ -107,15 +108,35 @@ func (view *View) lensCommand(arguments string) tea.Cmd {
 		}
 		return userinterface.Info(terminaltext.Clean(fmt.Sprintf("no lens %q; lenses: %s", identifier, strings.Join(names, ", "))))
 	}
-	view.lens = &lensPane{identifier: identifier, stops: readingOrder(loaded.content.Lenses[index])}
+	view.openLens(index)
 	view.focus = paneFiles
+	view.layout()
+	return nil
+}
+
+// openLens shows lens index of the analysis, at its first span.
+func (view *View) openLens(index int) {
+	lens := view.analysis().content.Lenses[index]
+	view.lens = &lensPane{identifier: lens.Identifier, stops: readingOrder(lens)}
 	view.showStop()
+}
+
+// stepLens is gt and gT: the next or previous lens, wrapping around.
+func (view *View) stepLens(delta int) tea.Cmd {
+	loaded := view.analysis()
+	if loaded == nil || !view.lensOpen() {
+		return nil
+	}
+	lenses := loaded.content.Lenses
+	current := slices.IndexFunc(lenses, func(lens analysis.Lens) bool { return lens.Identifier == view.lens.identifier })
+	view.openLens(((current+delta)%len(lenses) + len(lenses)) % len(lenses))
 	view.layout()
 	return nil
 }
 
 func (view *View) closeLens() {
 	view.lens = nil
+	view.filePane.SetSpan(diffview.Range{})
 	view.layout()
 }
 
@@ -160,6 +181,7 @@ func (view *View) showStop() {
 	if !ok {
 		return
 	}
+	view.filePane.SetSpan(diffview.Range{Path: span.Path, Side: span.Side, Start: span.Start, End: span.End})
 	entry := view.fileEntry(span.Path)
 	if entry == 0 {
 		return
@@ -256,7 +278,10 @@ func (view *View) lensRows(width, height int) []string {
 		return []string{view.theme.Muted.Render("The lens is gone from the analysis.")}
 	}
 	var rows []string
-	cursorRow := 0
+	// cursorRow is the cursor's span; anchorRow is where its segment starts
+	// (the top, for the first segment: the lens's purpose belongs to it), kept
+	// in view with it when they fit.
+	cursorRow, anchorRow, segmentRow := 0, 0, 0
 	wrap := func(text string, indent int) []string {
 		var lines []string
 		for _, line := range strings.Split(ansi.Wrap(terminaltext.Clean(text), max(1, width-indent), ""), "\n") {
@@ -275,17 +300,23 @@ func (view *View) lensRows(width, height int) []string {
 			if len(rows) > 0 {
 				rows = append(rows, "")
 			}
+			if i > 0 {
+				segmentRow = len(rows)
+			}
 			rows = append(rows, view.segmentHeader(segment, width))
 			if segment.Annotation != "" {
 				rows = append(rows, wrap(segment.Annotation, 2)...)
 			}
 		}
 		if i == view.lens.cursor {
-			cursorRow = len(rows)
+			cursorRow, anchorRow = len(rows), segmentRow
 		}
 		rows = append(rows, view.stopRow(i, width))
 	}
 	view.lens.top = scrolledTop(view.lens.top, cursorRow, len(rows), height)
+	if anchorRow < view.lens.top && cursorRow-anchorRow < height {
+		view.lens.top = anchorRow
+	}
 	return rows[view.lens.top:min(len(rows), view.lens.top+height)]
 }
 

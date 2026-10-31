@@ -94,8 +94,13 @@ type FilePane interface {
 	// or lines return the zero value.
 	Context() diffview.Context
 	// GotoLine moves the cursor to line number line of side, or the closest
-	// shown line of that side. Panes without lines ignore it.
+	// shown line of that side, and scrolls it to the top of the pane so what
+	// follows it is in view. Panes without lines ignore it.
 	GotoLine(side github.DiffSide, line int)
+	// SetSpan marks the lines of span (an analysis span being read) in the
+	// gutter while its file is shown; the zero Range marks nothing. Panes
+	// without lines ignore it.
+	SetSpan(span diffview.Range)
 	// VisualStart begins a line selection at the cursor, reporting false when
 	// it cannot (no diff line under the cursor).
 	VisualStart() bool

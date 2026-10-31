@@ -241,6 +241,7 @@ func (view *View) FullHelp() [][]key.Binding {
 		{view.bind.PaneLeft, view.bind.PaneRight, view.bind.NextFile, view.bind.PreviousFile, view.bind.FilePicker},
 		{view.bind.NextSection, view.bind.PreviousSection, view.bind.Comment, view.bind.OverviewComment, view.bind.Reply, view.bind.Viewed, view.bind.ReviewHunk},
 		{view.bind.Visual, view.bind.EditComment, view.bind.DeleteComment, view.bind.ResolveThread},
+		{view.bind.NextLens, view.bind.PreviousLens},
 		view.searchHelp(),
 	}
 	return append(out, view.filePane.FullHelp()...)

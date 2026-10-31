@@ -3,9 +3,9 @@ alice · changes requested · main ← feat/retry · [enhancement] [sync] · rev
 ╭─ Lens 1/2: General Flow ─────────╮╭─ internal/sync/legacy.go ────────────────────────────────────────────────────────╮
 │Follow the call path              ││ @@ -1,4 +0,0 @@                                                                  │
 │                                  ││>  1      -package sync                                                           │
-│Where it is called low risk       ││   2      -                                                                       │
-│  client.go:14–15 the new call    ││   3      -// retryForever is the legacy loop.                                    │
-│  client.go:200–210 · not in the …││   4      -func retryForever() {}                                                 │
+│Where it is called low risk       ││┃  2      -                                                                       │
+│  client.go:14–15 the new call    ││┃  3      -// retryForever is the legacy loop.                                    │
+│  client.go:200–210 · not in the …││┃  4      -func retryForever() {}                                                 │
 │                                  ││                                                                                  │
 │The helper high risk              ││                                                                                  │
 │  Check the backoff is bounded.   ││                                                                                  │

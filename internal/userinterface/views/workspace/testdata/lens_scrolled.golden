@@ -1,12 +1,12 @@
 open #7 Add retry policy to sync client
 alice · changes requested · main ← feat/retry · [enhancement] [sync] · reviewers: bob ?, team core ?, carol ✗, dave •
 ╭─ Lens 1/2: General Flow ─────────╮╭─ internal/sync/retry.go ─────────────────────────────────────────────────────────╮
-│Where it is called low risk       ││ @@ -0,0 +1,14 @@                                                                 │
-│  client.go:14–15 the new call    ││>      1  +package sync                                                           │
-│  client.go:200–210 · not in the …││       2  +                                                                       │
-│                                  ││       3  +import "context"                                                       │
-│The helper high risk              ││       4  +                                                                       │
-│  Check the backoff is bounded.   ││       5  +// Retry runs fn with exponential backoff.                             │
-│  legacy.go:1–4 (old)             ││       6  +func Retry(ctx context.Context, attempts int, fn func() error) error { │
-│> retry.go:1–14                   ││       7  +    var err error                                                      │
+│Where it is called low risk       ││>      1  +package sync                                                           │
+│  client.go:14–15 the new call    ││┃      2  +                                                                       │
+│  client.go:200–210 · not in the …││┃      3  +import "context"                                                       │
+│                                  ││┃      4  +                                                                       │
+│The helper high risk              ││┃      5  +// Retry runs fn with exponential backoff.                             │
+│  Check the backoff is bounded.   ││┃      6  +func Retry(ctx context.Context, attempts int, fn func() error) error { │
+│  legacy.go:1–4 (old)             ││┃      7  +    var err error                                                      │
+│> retry.go:1–14                   ││┃      8  +    for i := 0; i < attempts; i++ {                                    │
 ╰──────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────────────────╯
