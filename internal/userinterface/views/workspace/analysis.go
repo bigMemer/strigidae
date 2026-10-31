@@ -125,6 +125,7 @@ func (view *View) analysisRead(message analysisReadMessage) tea.Cmd {
 			"analysis %s is for %s#%d, not %s#%d", message.path, pullRequest.Repository, pullRequest.Number, view.repository, view.number))))
 	}
 	view.analyses.loaded[pullRequestKey{view.repository, view.number}] = &loadedAnalysis{content: message.content, path: message.path}
+	view.analysisChanged()
 	return userinterface.Info(view.analysisSummary())
 }
 

@@ -122,6 +122,7 @@ type View struct {
 	questions        *Questions // questions asked with :ask; nil when asking is off
 	analyses         *Analyses  // review analyses loaded; shared with other workspaces by WithAnalyses
 	readFile         func(path string) ([]byte, error)
+	lens             *lensPane        // the lens shown in place of the Files list; nil when none is open
 	hunkFingerprints fingerprintCache // fingerprints of the last file asked about
 
 	window  scroll.Window  // Files pane: over rows

@@ -1,0 +1,24 @@
+open #7 Add retry policy to sync client
+alice · changes requested · main ← feat/retry · [enhancement] [sync] · reviewers: bob ?, team core ?, carol ✗, dave •
+╭─ Lens 1/2: General Flow ─────────╮╭─ internal/sync/client.go ────────────────────────────────────────────────────────╮
+│Follow the call path              ││ @@ -10,8 +10,10 @@ import (                                                      │
+│                                  ││  10  10       "context"                                                          │
+│Where it is called low risk       ││  11  11       "time"                                                             │
+│> client.go:14–15 the new call    ││  12  12 ○ )                                                                      │
+│  client.go:200–210 · not in the …││           ▸ carol 1 comment · 1d ago [resolved] — Nit: unused import.            │
+│                                  ││  13  13                                                                          │
+│The helper high risk              ││  14      -func (c *Client) Sync(ctx context.Context) error {                     │
+│  Check the backoff is bounded.   ││  15      -    return c.retryForever(ctx, c.sync)                                 │
+│  legacy.go:1–4 (old)             ││>     14 ●+func (c *Client) Sync(ctx context.Context) error {                     │
+│  retry.go:1–14                   ││           ▾ bob 2 comments · 4h ago                                              │
+│                                  ││           │ bob · 5h ago  ❤️ 1                                                   │
+│                                  ││           │   Why retry here?                                                    │
+│                                  ││           │                                                                      │
+│                                  ││           │ alice · 4h ago  ❤️ 1                                                 │
+│                                  ││           │   Handles flaky links.                                               │
+│                                  ││      15  +    return Retry(ctx, 5, func() error {                                │
+│                                  ││      16  +        return c.sync(ctx)                                             │
+│                                  ││      17  +    })                                                                 │
+│                                  ││  16  18   }                                                                      │
+│                                  ││  17  19                                                                          │
+╰──────────────────────────────────╯╰──────────────────────────────────────────────────────────────────────────────────╯

@@ -67,6 +67,7 @@ func (view *View) handleKey(message keys.Message) tea.Cmd {
 	if chosen, ok := view.keyEntry(message); ok {
 		return view.invoke(chosen, invocation{message: message})
 	}
+	filesFocused := view.focus == paneFiles && !view.lensOpen()
 	switch {
 	case view.diffSearchFocused() && key.Matches(message, view.globalKeys.Search):
 		view.searchPane = paneRight
@@ -77,14 +78,14 @@ func (view *View) handleKey(message keys.Message) tea.Cmd {
 		return view.filePane.SearchStep(message, false, view.options.WrapScan())
 	case view.diffSearchFocused() && key.Matches(message, view.globalKeys.Cancel):
 		view.filePane.ClearSearch()
-	case view.focus == paneFiles && key.Matches(message, view.globalKeys.Search):
+	case filesFocused && key.Matches(message, view.globalKeys.Search):
 		view.searchPane = paneFiles
 		return view.search.Start(view.searchList())
-	case view.focus == paneFiles && key.Matches(message, view.globalKeys.NextMatch):
+	case filesFocused && key.Matches(message, view.globalKeys.NextMatch):
 		return view.search.Step(message, true, view.searchList(), view.options.WrapScan())
-	case view.focus == paneFiles && key.Matches(message, view.globalKeys.PreviousMatch):
+	case filesFocused && key.Matches(message, view.globalKeys.PreviousMatch):
 		return view.search.Step(message, false, view.searchList(), view.options.WrapScan())
-	case view.focus == paneFiles && key.Matches(message, view.globalKeys.Cancel):
+	case filesFocused && key.Matches(message, view.globalKeys.Cancel):
 		view.search.Clear()
 	case key.Matches(message, view.globalKeys.Open):
 		return view.openBrowser()
@@ -93,6 +94,8 @@ func (view *View) handleKey(message keys.Message) tea.Cmd {
 	case view.selection() > 0 && view.diffNavigation(message):
 		// Reserved globally: hunk and thread keys work from either pane.
 		return view.filePane.Update(message)
+	case view.focus == paneFiles && view.lensOpen():
+		view.lensKey(message)
 	case view.focus == paneFiles:
 		view.filesKey(message)
 	default:

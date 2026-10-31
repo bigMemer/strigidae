@@ -15,6 +15,12 @@ Line numbers on the `RIGHT` side are against `pr.head_sha`; on the `LEFT` side a
 - `:analysis <path>` loads any file; `:analysis` alone loads the conventional one again.
 - An analysis for another repository or pull request is refused. One made for another head than the diff on screen loads, marked stale: its line numbers may have moved.
 
+## Reading through a lens
+
+`:lens` shows the first lens in place of the Files list, `:lens <id>` another, and `:lens` again closes it. The pane lists the lens's segments in the lens's `order` (then any it leaves out), each with its title, risk and annotation, and under each its spans in the segment's `order` (then the rest). A span used by two segments appears under both.
+
+`j`/`k` (and `gg`/`G`) move between spans; the diff pane follows to the span's file and first line, on the old side for `LEFT` spans. `enter` moves focus to the diff; `:next-span` and `:previous-span` work from there. A span outside every hunk is marked "not in the diff" (the diff goes to the closest line), one in a file the pull request does not change "file not changed" (the diff stays where it is).
+
 ## Format
 
 The format is `prreview/analysis@1`. strig refuses unknown fields and checks that every reference resolves (segment spans, both `order` lists, `notes` keys, edge ends), reporting each problem with where it is. The JSON Schema:

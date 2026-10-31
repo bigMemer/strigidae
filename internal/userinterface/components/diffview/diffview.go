@@ -476,14 +476,27 @@ func (model *Model) GotoLine(line int) {
 	if model.file == nil {
 		return
 	}
-	deleted := model.file.Status == diff.Deleted
+	side := github.SideRight
+	if model.file.Status == diff.Deleted {
+		side = github.SideLeft
+	}
+	model.GotoSideLine(side, line)
+}
+
+// GotoSideLine moves the cursor to line number line of side (LEFT: the old
+// side), or the closest shown line of that side as GotoLine does. A file
+// with no line on that side (an added file's old side) keeps the cursor.
+func (model *Model) GotoSideLine(side github.DiffSide, line int) {
+	if model.file == nil {
+		return
+	}
 	best, bestNumber := -1, 0
 	for i, row := range model.base {
 		if !row.isLine() {
 			continue
 		}
 		number := row.line.New
-		if deleted {
+		if side == github.SideLeft {
 			number = row.line.Old
 		}
 		if number <= 0 {
