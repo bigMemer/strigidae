@@ -82,7 +82,10 @@ func (view *View) Render(width, height int) string {
 	filesWidth, rightWidth := view.paneWidths()
 	lineHeight := view.panesHeight()
 	var left, right []string
-	if filesWidth > 0 {
+	switch {
+	case filesWidth > 0 && view.lensOpen():
+		left = drawPane(view, view.lensTitle(), view.lensRows(filesWidth-2, lineHeight-2), filesWidth, lineHeight, view.focus == paneFiles)
+	case filesWidth > 0:
 		left = drawPane(view, view.filesTitle(), view.fileRows(filesWidth-2, lineHeight-2), filesWidth, lineHeight, view.focus == paneFiles)
 	}
 	if rightWidth > 0 {

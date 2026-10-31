@@ -248,6 +248,10 @@ func (pane *diffPane) SetHighlightSearch(on bool) { pane.diffView.SetHighlightSe
 
 func (pane *diffPane) Context() diffview.Context { return pane.diffView.Context() }
 
+func (pane *diffPane) GotoLine(side github.DiffSide, line int) {
+	pane.diffView.GotoSideLine(side, line)
+}
+
 func (pane *diffPane) VisualStart() bool          { return pane.diffView.VisualStart() }
 func (pane *diffPane) VisualActive() bool         { return pane.diffView.VisualActive() }
 func (pane *diffPane) VisualMove(delta int) error { return pane.diffView.VisualMove(delta) }

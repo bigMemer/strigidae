@@ -235,6 +235,21 @@ func (workspaceBindings *bindings) entries() []actionEntry {
 			run:    func(view *View, call invocation) tea.Cmd { return view.analysisCommand(call.arguments) },
 		},
 		{
+			Action: keys.Action{Name: "lens", Command: "lens"},
+			level:  levelPullRequest,
+			run:    func(view *View, call invocation) tea.Cmd { return view.lensCommand(call.arguments) },
+		},
+		{
+			Action: keys.Action{Name: "next-span", Command: "next-span"},
+			level:  levelPullRequest,
+			run:    func(view *View, _ invocation) tea.Cmd { return view.stepSpan(1) },
+		},
+		{
+			Action: keys.Action{Name: "previous-span", Command: "previous-span"},
+			level:  levelPullRequest,
+			run:    func(view *View, _ invocation) tea.Cmd { return view.stepSpan(-1) },
+		},
+		{
 			Action: keys.Action{Name: "checks", Command: "checks"},
 			level:  levelPullRequest,
 			run:    func(view *View, _ invocation) tea.Cmd { return view.checksCommand() },

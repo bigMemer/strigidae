@@ -1,0 +1,20 @@
+open #7 Add retry policy to sync client
+alice · changes requested · main ← feat/retry · [enhancemen…
+╭─ Lens 1/2: General Flow ─────────────────────────────────╮
+│Follow the call path                                      │
+│                                                          │
+│Where it is called low risk                               │
+│> client.go:14–15 the new call                            │
+│  client.go:200–210 · not in the diff                     │
+│                                                          │
+│The helper high risk                                      │
+│  Check the backoff is bounded.                           │
+│  legacy.go:1–4 (old)                                     │
+│  retry.go:1–14                                           │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+╰──────────────────────────────────────────────────────────╯

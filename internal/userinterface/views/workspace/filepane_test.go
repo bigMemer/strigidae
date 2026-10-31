@@ -26,11 +26,12 @@ type stubPane struct {
 
 func (pane *stubPane) SetTheme(theme.Theme) {}
 
-func (pane *stubPane) Context() diffview.Context { return diffview.Context{} }
-func (pane *stubPane) VisualStart() bool         { return false }
-func (pane *stubPane) VisualActive() bool        { return false }
-func (pane *stubPane) VisualMove(int) error      { return nil }
-func (pane *stubPane) VisualEnd()                {}
+func (pane *stubPane) Context() diffview.Context     { return diffview.Context{} }
+func (pane *stubPane) GotoLine(github.DiffSide, int) {}
+func (pane *stubPane) VisualStart() bool             { return false }
+func (pane *stubPane) VisualActive() bool            { return false }
+func (pane *stubPane) VisualMove(int) error          { return nil }
+func (pane *stubPane) VisualEnd()                    {}
 
 func (pane *stubPane) SetDiff(DiffState) {}
 
