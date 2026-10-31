@@ -51,6 +51,9 @@ type Options struct {
 	Open func(url string) error
 	// Timeouts are the deadlines of the GitHub calls; zero fields select the defaults.
 	Timeouts userinterface.Timeouts
+	// PullRequest, if not zero, is opened on start, over the list, as if it
+	// had been chosen from it.
+	PullRequest int
 	// Questions, if set, lets the workspaces it opens ask about lines (:ask).
 	Questions *workspace.Questions
 	// Clipboard is the system clipboard tool the workspaces copy with besides
@@ -93,6 +96,8 @@ type View struct {
 	// from here, so they survive closing and reopening a pull request.
 	hunkMarks *workspace.HunkMarks
 	questions *workspace.Questions
+	// openFirst is the pull request to open on start, or zero.
+	openFirst int
 	// analyses keeps the review analyses loaded in every workspace opened
 	// from here.
 	analyses *workspace.Analyses
@@ -168,6 +173,7 @@ func New(client github.Client, repository github.Repository, configured []config
 		timeouts:  options.Timeouts,
 		clipboard: options.Clipboard,
 		questions: options.Questions,
+		openFirst: options.PullRequest,
 		analyses:  workspace.NewAnalyses(),
 		hunkMarks: workspace.NewHunkMarks(),
 		tabs:      tabs,
@@ -218,7 +224,12 @@ func (view *View) FullHelp() [][]key.Binding {
 }
 
 // Init implements userinterface.View.
-func (view *View) Init() tea.Cmd { return view.show(view.active) }
+func (view *View) Init() tea.Cmd {
+	if view.openFirst > 0 {
+		return tea.Batch(view.show(view.active), view.openNumber(view.openFirst))
+	}
+	return view.show(view.active)
+}
 
 // show loads the tab's rows the first time it is shown.
 func (view *View) show(index int) tea.Cmd {
@@ -431,7 +442,12 @@ func (view *View) openSelected() tea.Cmd {
 	if !ok {
 		return nil
 	}
-	return userinterface.Push(workspace.New(view.client, view.repository, pullRequest.Number,
+	return view.openNumber(pullRequest.Number)
+}
+
+// openNumber opens pull request number's workspace over the list.
+func (view *View) openNumber(number int) tea.Cmd {
+	return userinterface.Push(workspace.New(view.client, view.repository, number,
 		workspace.WithTheme(view.theme),
 		workspace.WithClock(view.now),
 		workspace.WithOpener(view.open),

@@ -89,6 +89,44 @@ func TestRunUnknownFlag(test *testing.T) {
 	}
 }
 
+func TestRunPullRequestNumber(test *testing.T) {
+	remotes := map[string]string{"origin": "git@github.com:o/r.git"}
+	for _, testCase := range []struct {
+		name      string
+		arguments []string
+		checkout  bool
+		want      int
+		wantCode  int
+		wantError string
+	}{
+		{"none", nil, true, 0, 0, ""},
+		{"number", []string{"189"}, true, 189, 0, ""},
+		{"with a hash", []string{"#189"}, true, 189, 0, ""},
+		{"after -R outside a checkout", []string{"-R", "o/r", "7"}, false, 7, 0, ""},
+		{"zero", []string{"0"}, true, 0, 2, `unexpected argument "0"`},
+		{"negative", []string{"-1"}, true, 0, 2, ""},
+		{"two numbers", []string{"1", "2"}, true, 0, 2, `unexpected argument "2": give at most one pull request number`},
+		{"no repository", []string{"7"}, false, 0, 2, "pull request 7: no repository here (run strig in a checkout, or pass -R owner/repo)"},
+	} {
+		test.Run(testCase.name, func(test *testing.T) {
+			var stdout, stderr bytes.Buffer
+			harness := newHarness(remotes, testCase.checkout, nil)
+			if code := run(testCase.arguments, &stdout, &stderr, harness.dependencies); code != testCase.wantCode {
+				test.Fatalf("exit code = %d, want %d (stderr: %s)", code, testCase.wantCode, stderr.String())
+			}
+			if testCase.wantCode != 0 {
+				if !strings.Contains(stderr.String(), testCase.wantError) || harness.application != nil {
+					test.Errorf("stderr = %q, want %q; started = %v", stderr.String(), testCase.wantError, harness.application != nil)
+				}
+				return
+			}
+			if harness.application.pullRequest != testCase.want {
+				test.Errorf("pull request = %d, want %d", harness.application.pullRequest, testCase.want)
+			}
+		})
+	}
+}
+
 func TestRunPositionalArgument(test *testing.T) {
 	var stdout, stderr bytes.Buffer
 	harness := newHarness(map[string]string{"origin": "git@github.com:o/r.git"}, true, nil)

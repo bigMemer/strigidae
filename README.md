@@ -24,6 +24,10 @@ Or install directly:
 go install github.com/MikePors/strigidae/cmd/strig@latest
 ```
 
+## Opening a pull request directly
+
+`strig 189` (or `strig '#189'`, or `strig -R owner/repo 189`) starts with pull request 189 open, over the repository's pull request list, so `:q` goes back to the list. It needs a repository: inside a checkout with a GitHub remote, or with `-R`.
+
 ## Dashboard
 
 Run `strig` outside a git checkout, or in one with no GitHub remote (and without `-R`), to see the dashboard: one tab per entry in the config (by default a single "Me" tab), each tab showing its sections stacked, with pull requests from any repository. `g t` / `g T` switch tabs, `]` / `[` jump between sections, `enter` opens the pull request, `o` opens it in the browser and `R` refreshes the tab, and `/` searches the rows: type to jump to the first match, `enter` keeps the search (matching rows get a marker), `n` / `N` move to the next / previous match and `esc` clears it. The repository's pull request list and the Files pane of a pull request search the same way. In a pull request, `/` searches whichever pane has focus: the Files pane's paths, or the shown file's diff lines and comment threads (only what is drawn; the cursor row shows `>` instead of the marker); each pane keeps its own query, and showing another file clears the diff's. Inside a checkout with a GitHub remote, or with `-R owner/repo`, strig shows that repository's pull requests instead. That list has tabs too: **All** (every open pull request), then one per entry in the config's `tabs:` (by default **Me**) with the repository's open pull requests by that tab's `user`; the tabs' sections are not used there. `g t` / `g T` switch tabs; each tab loads when first shown, keeps its own cursor and search, and `R` refreshes the tab on screen. A checkout whose remote is on a host strig doesn't know (another forge, or a GitHub Enterprise host you are not signed in to) still exits with an error; pass `-R owner/repo` there.

@@ -31,6 +31,9 @@ type application struct {
 	// with no GitHub remote: there is no repository to list, so the first view
 	// is the dashboard of config.
 	dashboard bool
+	// pullRequest is the number given on the command line, opened on start;
+	// zero for none.
+	pullRequest int
 	// notice is shown in the status bar when the dashboard starts, to say why
 	// it is showing.
 	notice string
