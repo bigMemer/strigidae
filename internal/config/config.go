@@ -30,6 +30,8 @@ type Config struct {
 	Timeouts Timeouts
 	// Plugins are the commands the file defines, in file order.
 	Plugins []Plugin
+	// Keys are the key mappings, in file order.
+	Keys []KeyMapping
 }
 
 // Timeouts holds the optional deadline overrides of the timeouts: key.

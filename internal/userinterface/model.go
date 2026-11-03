@@ -54,6 +54,8 @@ type Options struct {
 	PluginCommands []PluginCommand
 	// Checkout is the checkout strig runs in, if any, for plugin requests.
 	Checkout Checkout
+	// KeyMappings are the config's keys that run command lines.
+	KeyMappings []KeyMapping
 	// PluginQuitWait is how long quitting waits for plugin runs it has
 	// cancelled; DefaultPluginQuitWait by default.
 	PluginQuitWait time.Duration
@@ -98,6 +100,7 @@ type Model struct {
 	pluginRunner   PluginRunner
 	pluginCommands []PluginCommand
 	checkout       Checkout
+	mappings       []KeyMapping
 	pluginQuitWait time.Duration
 	pluginContext  context.Context // made with the first run; cancelled at quit
 	pluginCancel   context.CancelFunc
@@ -177,6 +180,7 @@ func New(root View, activeTheme theme.Theme, startup Options) *Model {
 		pluginRunner:    startup.PluginRunner,
 		pluginCommands:  startup.PluginCommands,
 		checkout:        startup.Checkout,
+		mappings:        startup.KeyMappings,
 		pluginQuitWait:  startup.PluginQuitWait,
 		pluginRuns:      map[int]pluginRun{},
 		commandLine:     newCommandLine(activeTheme),
@@ -387,6 +391,11 @@ func (model *Model) syncSpinner() tea.Cmd {
 
 // bindings returns every binding active now, for sequence matching.
 func (model *Model) bindings() []key.Binding {
+	return append(model.builtinBindings(), model.mappingBindings()...)
+}
+
+// builtinBindings are strig's own keys: the global ones and the top view's.
+func (model *Model) builtinBindings() []key.Binding {
 	out := model.keys.Bindings()
 	for _, bindings := range model.top().FullHelp() {
 		out = append(out, bindings...)
@@ -471,13 +480,20 @@ func (model *Model) dispatch(sequence string, count int) tea.Cmd {
 	case key.Matches(keyMessage, model.keys.Command):
 		return model.commandLine.open()
 	}
+	if command, ok := model.mappedCommand(keyMessage); ok {
+		return command
+	}
 	return model.withRequestedPrompt(model.forward(keyMessage))
 }
 
 // helpLines is the help's scrolling body at the current size and bindings.
 func (model *Model) helpLines() []string {
 	width, _ := model.contentSize()
-	return helpBody(model.theme, model.top().Title(), model.keys.FullHelp(), model.top().FullHelp(), width)
+	global := model.keys.FullHelp()
+	if len(model.mappings) > 0 {
+		global = append(global, model.mappingBindings())
+	}
+	return helpBody(model.theme, model.top().Title(), global, model.top().FullHelp(), width)
 }
 
 // clampHelp pulls the offset back inside the body, which changes length with
