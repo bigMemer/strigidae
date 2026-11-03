@@ -15,7 +15,7 @@ import (
 
 // writeKinds is every kind of write, so a kind added without a row in the
 // tables below fails TestGuardTableCoversEveryKind.
-var writeKinds = []writeKind{writeComment, writeOverviewComment, writeThread, writeReaction, writeReview, writeMerge, writeDiscard, writePullRequest}
+var writeKinds = []writeKind{writeComment, writeOverviewComment, writeThread, writeReaction, writeReview, writeMerge, writeDiscard, writePullRequest, writeDraftState}
 
 // pluginKinds are the guard kinds of the plugin commands: they write nothing,
 // so busy states do not block them.
@@ -45,7 +45,7 @@ func (inliner *inliner) mutations() int {
 		fake.MethodDeleteReview, fake.MethodReplyToThread, fake.MethodAddComment, fake.MethodSubmitReview,
 		fake.MethodMergePullRequest, fake.MethodAddReaction, fake.MethodRemoveReaction,
 		fake.MethodResolveReviewThread, fake.MethodUnresolveReviewThread,
-		fake.MethodUpdatePullRequest,
+		fake.MethodUpdatePullRequest, fake.MethodMarkReadyForReview, fake.MethodConvertToDraft,
 	}
 	count := 0
 	for _, call := range inliner.client.Calls() {
@@ -120,6 +120,8 @@ func guardActions() []guardAction {
 		{":merge", writeMerge, func(*inliner) {}, command("merge", "")},
 		{":discard-review", writeDiscard, func(*inliner) {}, command("discard-review", "")},
 		{":edit-pull-request", writePullRequest, func(*inliner) {}, command("edit-pull-request", "")},
+		{":ready", writeDraftState, func(*inliner) {}, command("ready", "")},
+		{":draft", writeDraftState, func(*inliner) {}, command("draft", "")},
 	}
 }
 
@@ -365,6 +367,17 @@ func readmissions() []readmission {
 			inliner.body = "Changed\n\nbody"
 			inliner.messages = nil
 			inliner.command("edit-pull-request")
+			return askedYes(inliner)
+		}},
+		{"re-read before :ready asks", writeDraftState, func(inliner *inliner) tea.Cmd {
+			inliner.setDraft(true)
+			read, _ := inliner.view.Command("ready", "")
+			return read
+		}},
+		{"yes to :ready", writeDraftState, func(inliner *inliner) tea.Cmd {
+			inliner.setDraft(true)
+			inliner.messages = nil
+			inliner.command("ready")
 			return askedYes(inliner)
 		}},
 		{"yes to a merge", writeMerge, func(inliner *inliner) tea.Cmd {

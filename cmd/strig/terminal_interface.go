@@ -52,8 +52,14 @@ func runTerminalInterface(application application, stderr io.Writer) error {
 // notice, and the options the config file set.
 func (application application) userInterfaceOptions(logger *slog.Logger, notice string) userinterface.Options {
 	runner, commands, names := application.pluginOptions(logger)
+	// Without a state directory local threads live for the session only.
+	stateDirectory, err := logging.StateDirectory(os.Getenv, os.UserHomeDir)
+	if err != nil {
+		logger.Warn("local threads are not kept between runs", "err", err)
+	}
 	return userinterface.Options{
-		Logger: logger, Notice: notice, StartingOptions: application.config.Options,
+		StateDirectory: stateDirectory,
+		Logger:         logger, Notice: notice, StartingOptions: application.config.Options,
 		ViewCommands: append(viewCommands(), names...),
 		PluginRunner: runner, PluginCommands: commands,
 	}

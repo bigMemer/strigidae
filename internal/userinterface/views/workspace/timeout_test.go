@@ -75,6 +75,14 @@ func (client blockingClient) UpdatePullRequest(ctx context.Context, _ github.Upd
 	return client.wait(ctx)
 }
 
+func (client blockingClient) MarkReadyForReview(ctx context.Context, _ github.DraftStateInput) error {
+	return client.wait(ctx)
+}
+
+func (client blockingClient) ConvertToDraft(ctx context.Context, _ github.DraftStateInput) error {
+	return client.wait(ctx)
+}
+
 func (client blockingClient) UpdateReviewComment(ctx context.Context, _, _ string) (github.ReviewComment, error) {
 	return github.ReviewComment{}, client.wait(ctx)
 }

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -43,6 +44,8 @@ type PluginsMessage struct{ Commands []PluginCommand }
 // by a plugin run and compared (repository and number) with the pull request
 // on screen when the run ends, so a result is shown only where it belongs.
 type PullRequestIdentity struct {
+	// Host is the GitHub host, empty if the view does not know it.
+	Host       string
 	Repository github.Repository
 	Number     int
 	Head       string
@@ -74,6 +77,10 @@ type PluginHost interface {
 	PullRequestIdentity() (identity PullRequestIdentity, ok bool)
 	// Reload reloads what the view shows, as its refresh key does.
 	Reload() tea.Cmd
+	// ReadOnlyCommand runs the view's command name with the arguments, as if
+	// they were typed, when it is one that writes nothing. ok is false for
+	// any other name, which the view leaves alone.
+	ReadOnlyCommand(name, arguments string) (command tea.Cmd, ok bool)
 }
 
 // CommandLineKeeper is implemented by a KeyCapturer that lets ":" open the
@@ -83,6 +90,10 @@ type PluginHost interface {
 type CommandLineKeeper interface {
 	KeepsCommandLine() bool
 }
+
+// pluginStopper is a runner with processes that outlive a run, the services
+// of *plugins.Runner: Close ends them once the runs have ended.
+type pluginStopper interface{ Stop() }
 
 // pluginRun is a run the root has started and not yet heard back from.
 type pluginRun struct {
@@ -117,7 +128,7 @@ func (model *Model) startPlugin(message RunPluginMessage) tea.Cmd {
 	var shown tea.Cmd
 	if model.showsThread(message.Name) && message.Request.Target != nil {
 		started.thread = model.askLocalThread(message)
-		shown = model.broadcast(LocalThreadsMessage{Threads: model.localThreads.snapshot()})
+		shown = tea.Batch(model.broadcast(LocalThreadsMessage{Threads: model.localThreads.snapshot()}), model.saveLocalThreads(model.localThreadKey(message)))
 	}
 	model.pluginRuns[run] = started
 	runner, ctx := model.pluginRunner, model.pluginContext
@@ -149,6 +160,8 @@ func (model *Model) askLocalThread(message RunPluginMessage) string {
 		question = ":" + message.Name
 	}
 	return model.localThreads.add(LocalThread{
+		Host:       message.Request.Repository.Host,
+		Asked:      model.clock(),
 		Repository: message.Identity.Repository,
 		Number:     message.Identity.Number,
 		Head:       message.Request.Head,
@@ -159,6 +172,12 @@ func (model *Model) askLocalThread(message RunPluginMessage) string {
 		Question:   question,
 		State:      github.LocalWaiting,
 	})
+}
+
+// localThreadKey is the pull request an asked thread belongs to. Its host is
+// the one in the request, the same the plugin is given.
+func (model *Model) localThreadKey(message RunPluginMessage) pullRequestKey {
+	return pullRequestKey{message.Request.Repository.Host, message.Identity.Repository, message.Identity.Number}
 }
 
 // finishLocalThread fills the thread of a finished run: the answers joined by
@@ -189,8 +208,11 @@ func (model *Model) finishLocalThread(identifier string, message pluginResultMes
 	default:
 		text = "the plugin gave no answer"
 	}
-	model.localThreads.finish(identifier, state, text)
-	return model.broadcast(LocalThreadsMessage{Threads: model.localThreads.snapshot()})
+	var saved tea.Cmd
+	if key, found := model.localThreads.finish(identifier, state, text); found {
+		saved = model.saveLocalThreads(key)
+	}
+	return tea.Batch(model.broadcast(LocalThreadsMessage{Threads: model.localThreads.snapshot()}), saved)
 }
 
 // pluginActive reports whether a run of the pull request the top view shows
@@ -271,11 +293,34 @@ func (model *Model) pluginEffects(host PluginHost, name string, effects []plugin
 			commands = append(commands, model.setStatus(terminaltext.Clean(effect.Text), statusError))
 		case plugins.EffectReload:
 			commands = append(commands, host.Reload())
+		case plugins.EffectCommand:
+			commands = append(commands, model.pluginCommand(host, name, effect.Line))
 		default:
 			model.log.Warn("plugin effect not handled", slog.String("plugin", name), slog.String("effect", effect.Name))
 		}
 	}
 	return tea.Batch(commands...)
+}
+
+// pluginCommand runs the command line of a command effect, if it is a command
+// of the host that writes nothing: a plugin may show and navigate, never
+// write. The shell's own commands are never run, so a plugin can't quit or
+// change the options. The line is the plugin's, so what is shown of it is
+// cleaned.
+func (model *Model) pluginCommand(host PluginHost, plugin, line string) tea.Cmd {
+	_, name, _, arguments, _ := splitCommandLine(strings.TrimPrefix(strings.TrimSpace(line), ":"))
+	name, arguments = strings.TrimSpace(name), strings.TrimSpace(arguments)
+	shell := slices.Contains(CommandNames(), name)
+	if !shell {
+		if command, ok := host.ReadOnlyCommand(name, arguments); ok {
+			return command
+		}
+	}
+	if !shell && !slices.Contains(model.viewCommands, name) {
+		return model.setStatus("not a command: "+terminaltext.Clean(name), statusError)
+	}
+	model.log.Info("plugin command refused", "plugin", plugin, "command", name)
+	return model.setStatus("plugin "+plugin+" can't run :"+terminaltext.Clean(name), statusError)
 }
 
 // quit ends the program. With plugin runs under way they are cancelled and
@@ -290,9 +335,12 @@ func (model *Model) quit() tea.Cmd {
 	return model.tick(model.pluginQuitWait, func(time.Time) tea.Msg { return quitWaitedMessage{} })
 }
 
-// Close cancels every plugin run and waits for them to end, for at most the
-// quit wait. cmd/strig calls it after the program returns, on every path: an
-// exit that never reaches Update (SIGTERM ends Bubble Tea with a QuitMsg that
+// Close cancels every plugin run and waits for them to end, then kills the
+// runner's services, and writes the local threads that changed since their
+// last write, all within one quit wait.
+// The writes do not wait for the runs, and do not depend on any command having
+// run. cmd/strig calls it after the program returns, on every path:
+// an exit that never reaches Update (SIGTERM ends Bubble Tea with a QuitMsg that
 // the model does not see; SIGINT and a failed Run are others) would otherwise
 // leave plugins running, and a plugin has a session of its own. The wait is
 // for the runs to end, not just for the cancel: the kill happens in the
@@ -300,17 +348,53 @@ func (model *Model) quit() tea.Cmd {
 // returned, so nothing else uses the model; the caller must not use it
 // afterwards.
 func (model *Model) Close() {
-	if model.pluginCancel == nil {
+	timeout := time.After(model.pluginQuitWait)
+	if model.pluginCancel != nil {
+		model.pluginCancel()
+	}
+	flushed := model.flushLocalThreads() // its file work runs in a goroutine, beside the wait for the runs
+	select {
+	case <-flushed:
+	case <-timeout:
 		return
 	}
-	model.pluginCancel()
-	ended := make(chan struct{})
+	if model.pluginCancel != nil && waitFor(&model.pluginRunning, timeout) {
+		model.stopServices(timeout)
+	}
+}
+
+// stopServices kills the runner's services, if it has any, and waits for
+// them within the timeout. A service left behind by a timeout still sees its
+// standard input end when strig exits.
+func (model *Model) stopServices(timeout <-chan time.Time) {
+	stopper, ok := model.pluginRunner.(pluginStopper)
+	if !ok {
+		return
+	}
+	stopped := make(chan struct{})
 	go func() {
-		model.pluginRunning.Wait()
-		close(ended)
+		stopper.Stop()
+		close(stopped)
 	}()
 	select {
-	case <-ended:
-	case <-time.After(model.pluginQuitWait):
+	case <-stopped:
+	case <-timeout:
+	}
+}
+
+// waitFor waits for the group or the timeout, and says whether the group ended.
+// The caller stops after the first false, so a fired timeout is never waited
+// on twice.
+func waitFor(group *sync.WaitGroup, timeout <-chan time.Time) bool {
+	done := make(chan struct{})
+	go func() {
+		group.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return true
+	case <-timeout:
+		return false
 	}
 }

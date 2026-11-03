@@ -36,6 +36,7 @@ plugins:
 | `target` | yes | What the command acts on: `lines` or `pull-request` |
 | `show` | no | Where the answer is drawn. The only value is `thread`, and only with `target: lines`: see "Answers as local threads". Without it the answer is a notice |
 | `timeout` | no | How long one run may take, as a Go duration such as `90s` or `2m`. Above zero. Default `60s` |
+| `service` | no | A plain word naming a long-running process that serves the plugin's runs, shared by every plugin with the same `service`; they must have the same `on_run`. See "Services" |
 
 Unknown keys are errors, like everywhere in the config. So is a `command` that
 is already a command of strig itself (`approve`, `merge`, `q`, ...): the
@@ -122,16 +123,31 @@ error to give `show` to a `pull-request` plugin.
   If it prints both an `answer` and an `error`, the thread shows the answer.
 - `notice` and `reload` effects of the run work as for any plugin, and an
   `error` printed beside an `answer` also goes to the status bar.
-- The thread is **local to strig**. It is never sent to GitHub and is gone when
-  strig quits. `r`, `x`, `:resolve`, `:unresolve`, `e`, `D`, `:edit-comment`,
+- The thread is **local to strig**. It is never sent to GitHub. It is kept on
+  your disk, below. `r`, `x`, `:resolve`, `:unresolve`, `e`, `D`, `:edit-comment`,
   `:delete-comment` and `:react` on it say `this answer is local to strig, not
   on GitHub: nothing to <action>` and do nothing. It is never resolved, never a
   draft, and not counted among the pull request's threads or unresolved
   threads. Folding (`z a`), `)` / `(`, `:set hideresolved`, `skipresolved` and
   search treat it like any other thread.
-- Threads are kept by repository and pull request number for as long as strig
-  runs, so an answer that arrives while the pull request is closed is there
-  when you open it again.
+- Threads are kept by host, repository and pull request number, so an answer that
+  arrives while the pull request is closed is there when you open it again.
+- **Answers survive restarting strig.** Each pull request has a file,
+  `strig/local-threads/<host>/<owner>/<name>/<number>.json` under
+  `$XDG_STATE_HOME` (`~/.local/state` if it is not set), written after every
+  change and read the first time you open that pull request in a run. A
+  question that was still waiting when strig exited shows
+  `no answer: strig was closed`. The directory is private to you (`0700`, files
+  `0600`). Only the 200 newest questions of a pull request are kept, and only
+  as many as fit in 4 MiB of file; asking another, or a long answer, drops the
+  oldest, from the screen and from the file. Removing the
+  directory deletes every saved answer; strig never cleans it up itself. A file
+  strig can't read (damaged, from a newer strig, or over 4 MiB) is logged,
+  ignored, and renamed to `<number>.json.unreadable` before strig next writes
+  that pull request, so it is not overwritten. Nothing is kept when strig can't
+  tell the pull request's host.
+  Two strig processes on the same pull request can overwrite each other's new
+  answers: each reads the file once and rewrites it whole.
 - **Outdated.** A thread remembers the head commit it was asked on. When the
   diff on screen is of another head, it is marked `[outdated]`, muted, and
   listed after the last row of its file with its location, as GitHub's
@@ -203,6 +219,7 @@ The plugin prints JSON lines on standard output. Each line is one *effect*:
 | `error` | `{"text": ...}` | A failure and its reason. With a failure exit status the run fails with this text; with exit 0 the effect is returned like any other |
 | `answer` | `{"text": ...}` | An answer to show to the user: a notice, or the answer of a local thread with `show: thread` |
 | `reload` | `{}` | Reload the pull request on screen, as `R` does |
+| `command` | `{"line": ...}` | Run one of strig's commands that write nothing, as if `:` and the line had been typed: see "Commands a plugin can run" |
 
 Rules:
 
@@ -212,7 +229,8 @@ Rules:
 - A line that is not a JSON object with a `name` fails the run. So does a known
   effect with bad `data`: `data` may be left out (or `null`) and otherwise must
   be an object, and `notice`, `error` and `answer` need a non-empty string
-  `text` in it. `reload` needs no data.
+  `text` in it. `reload` needs no data. `command` needs a non-blank string
+  `line`.
 - `error` is an effect like the others: a run can print one and still exit 0.
 - Text in effects can hold anything the program printed, including terminal
   escape sequences. strig cleans it where it is shown.
@@ -223,6 +241,28 @@ Standard error is written to strig's log file (`strig --log-path` prints where)
 and never shown on the screen, one log record per line with the plugin's name,
 so the text cannot pass as a log line of strig's own. Only the first 64 KiB of
 a run's standard error is kept, followed by a note; the rest is dropped.
+
+## Commands a plugin can run
+
+A `command` effect runs a command of the pull request workspace that writes
+nothing to GitHub: today `:checks`, `:copy-filename` and `:copy-url`, and any
+such command added later. The line is the command and its arguments, as typed
+after `:` (a leading `:` is allowed):
+
+```json
+{"name": "command", "data": {"line": "checks"}}
+```
+
+It runs in the pull request the plugin was run from, in the order the effects
+were printed, and only while that pull request is on screen, like every
+effect. It keeps the rules of a typed command: during a line selection it is
+refused with `end the selection to run :<name>`.
+
+A plugin can show and navigate, never write. A command that writes
+(`:approve`, `:resolve`, `:merge`, ...), a plugin command and strig's own
+commands (`:q`, `:qa`, `:set`, `:theme`) are refused with `plugin <plugin>
+can't run :<name>` in the status bar; a word that is no command says `not a
+command: <name>`.
 
 ## Exit status
 
@@ -249,7 +289,60 @@ not stop a running plugin either.
 
 Runs of one plugin go one at a time, in the order they were asked for; the
 others wait. A run that is cancelled while it waits leaves without running.
-Different plugins do not wait for each other.
+Different plugins do not wait for each other, and runs of a plugin with a
+`service` don't wait at all (see "Services").
+
+## Services
+
+A plugin with `service: <name>` is not started once per run. strig starts its
+program at the first run of any plugin of that service and keeps it running,
+so one process serves every run of those plugins. It suits a program that
+holds something open between runs (a session, a connection only one process
+may have) or whose replies take long: runs of a service don't wait for each
+other.
+
+```yaml
+plugins:
+  - {command: ask,       on_run: [my-helper], target: lines,        show: thread, service: helper, timeout: 10m}
+  - {command: summarize, on_run: [my-helper], target: pull-request,               service: helper}
+```
+
+What differs from a one-off run:
+
+- **Requests** are written to the process's standard input, one JSON line per
+  run, as described in "What strig sends", with an `id` string added (the
+  standard input stays open). The `command` field says which plugin the run
+  is for.
+- **Effects** are printed one JSON line each, as in "What the plugin prints",
+  with the run's `id` beside `name` and `data`. `{"id": "...", "name": "done"}`
+  ends the run; its effects are then handled as those of a one-off run are.
+  The effects of several runs may be printed in any order.
+
+  ```json
+  {"id": "3", "name": "answer", "data": {"text": "It retries five times."}}
+  {"id": "3", "name": "done"}
+  ```
+
+- **Bad output** does not end the service: a line that is not JSON with an
+  `id`, or whose `id` is no run under way (one that timed out, for example),
+  is logged and skipped. A bad effect with the `id` of a run under way (bad
+  `data`, no `name`) fails that run, as it would fail a one-off run. More than
+  1 MiB of effects for one run fails the run. A single line longer than 1 MiB
+  cannot be read: strig kills the process and its runs fail.
+- **The timeout** is per run and starts when the run starts. A run that times
+  out fails, and the process keeps running; what it prints for the run later
+  is skipped.
+- **Exit status** does not decide runs. When the process ends, the runs under
+  way fail with `plugin "<name>": exited`, and the next run starts it again.
+- **Quitting strig** kills the process, on every path out, as it kills runs.
+  Should the kill not finish within the quit wait, the process's standard
+  input still ends as strig exits, so a service should also exit at the end
+  of its input.
+- **Standard error** goes to the log as for runs, with the 64 KiB limit for
+  each start of the process.
+
+A service runs in a session of its own and gets the environment described
+below, like any plugin.
 
 ## The environment
 

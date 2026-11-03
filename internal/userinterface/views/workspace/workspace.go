@@ -366,6 +366,16 @@ func (view *View) Update(message tea.Msg) (userinterface.View, tea.Cmd) {
 			return view, nil
 		}
 		return view, view.pullRequestUpdated(message)
+	case draftReadMessage:
+		if !view.composeMine(message.origin, message.sequence) {
+			return view, nil
+		}
+		return view, view.draftRead(message)
+	case draftChangedMessage:
+		if !view.owns(message.origin) {
+			return view, nil
+		}
+		return view, view.draftChanged(message)
 	case commentCheckedMessage:
 		if !view.owns(message.origin) {
 			return view, nil

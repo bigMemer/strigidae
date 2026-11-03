@@ -6,7 +6,7 @@ toolchain go1.27.3
 
 require (
 	charm.land/bubbles/v2 v2.2.1
-	charm.land/bubbletea/v2 v2.1.0
+	charm.land/bubbletea/v2 v2.1.1
 	charm.land/glamour/v2 v2.0.2-0.20261015065741-010543cac1a0
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/alecthomas/chroma/v2 v2.27.0
@@ -15,7 +15,7 @@ require (
 	github.com/cli/go-gh/v2 v2.17.0
 	github.com/google/go-cmp v0.7.0
 	github.com/rivo/uniseg v0.4.7
-	go.yaml.in/yaml/v3 v3.0.5
+	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/sys v0.49.0
 )
 

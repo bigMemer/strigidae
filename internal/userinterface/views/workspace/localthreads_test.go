@@ -37,10 +37,10 @@ func withThreadCommands(startup *userinterface.Options) {
 
 func (session *pluginSession) screen() string { return ansi.Strip(session.model.View().Content) }
 
-func newThreadSession(test *testing.T, runner *recordingRunner) *pluginSession {
+func newThreadSession(test *testing.T, runner *recordingRunner, more ...func(*userinterface.Options)) *pluginSession {
 	test.Helper()
 	inliner := newInliner(test)
-	session := startPluginSession(test, inliner, inliner.view, runner, withThreadCommands)
+	session := startPluginSession(test, inliner, inliner.view, runner, append([]func(*userinterface.Options){withThreadCommands}, more...)...)
 	inliner.moveTo(github.SideRight, 15)
 	return session
 }

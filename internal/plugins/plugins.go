@@ -1,7 +1,9 @@
 // Package plugins runs the programs behind the user's configured command
 // plugins. A run starts the program, writes one JSON request to its standard
 // input and reads effects, JSON lines on its standard output, that say what
-// the plugin would like strig to do. A plugin suggests; strig decides: strig
+// the plugin would like strig to do. A plugin with a service is served by one
+// long-running process instead, shared with the other plugins of that
+// service: each run writes its request to it and waits for its effects. A plugin suggests; strig decides: strig
 // gives a plugin no GitHub token and writes nothing for it, and what a plugin
 // asks for goes through strig's own rules. A plugin is still the user's own
 // program, running as the user, so it can do whatever the user can, such as
@@ -56,6 +58,9 @@ const (
 	EffectReload = "reload"
 	// EffectAnswer carries an answer to show to the user.
 	EffectAnswer = "answer"
+	// EffectCommand asks strig to run one of its commands that write nothing;
+	// Line is the command line.
+	EffectCommand = "command"
 )
 
 // Errors a run can fail with, to be tested with errors.Is.
@@ -71,6 +76,8 @@ var (
 	ErrOutputTooLarge = errors.New("printed too much output")
 	// ErrInvalidOutput means a line the plugin printed is not an effect.
 	ErrInvalidOutput = errors.New("printed a line that is not an effect")
+	// ErrExited means a plugin's service ended before the run's "done".
+	ErrExited = errors.New("exited")
 )
 
 // Request is the JSON object a plugin reads from standard input.
@@ -114,14 +121,17 @@ type Target struct {
 	Excerpt string `json:"excerpt"`
 }
 
-// Effect is one thing a plugin asked for. Text is empty for effects that have
-// none. It is untrusted: sanitise it where it is shown. The same goes for the
+// Effect is one thing a plugin asked for. Text and Line are empty for effects
+// that have none. It is untrusted: sanitise it where it is shown. The same goes for the
 // text of an error effect that reaches the caller as the text of an error
 // returned by Run: it is plugin-controlled, up to MaximumOutputSize long and
 // may hold terminal escapes, so clean it (terminaltext.Clean) where it is shown.
 type Effect struct {
 	Name string
 	Text string
+	// Line is the command line of a command effect, without the ":". It is
+	// as untrusted as Text.
+	Line string
 }
 
 // Options are the inputs a Runner takes instead of reading globals.
@@ -142,7 +152,8 @@ type Options struct {
 	Home func() (string, error)
 }
 
-// Runner runs the configured plugins, one run at a time per plugin.
+// Runner runs the configured plugins, one run at a time per plugin, except
+// for plugins with a service, whose runs go to the service at once.
 type Runner struct {
 	entries     map[string]*entry
 	environment []string
@@ -150,15 +161,24 @@ type Runner struct {
 	waitDelay   time.Duration
 	home        func() (string, error)
 
-	// Seams for tests: called when a run joins a queue, and to start a run's
-	// timeout.
+	// The services' processes live until Stop.
+	serviceContext   context.Context
+	stopServices     context.CancelFunc
+	serviceProcesses sync.WaitGroup
+	stopping         sync.Mutex
+	stopped          bool
+
+	// Seams for tests: called when a run joins a queue, to start a run's
+	// timeout, and once a run's request was written to its service.
 	queued      func(name string)
 	withTimeout func(ctx context.Context, duration time.Duration) (context.Context, context.CancelFunc)
+	sent        func(name string)
 }
 
 type entry struct {
-	plugin config.Plugin
-	queue  queue
+	plugin  config.Plugin
+	queue   queue
+	service *service // nil for a plugin started once per run
 }
 
 // New returns a Runner for the plugins, which config has already validated.
@@ -171,15 +191,25 @@ func New(plugins []config.Plugin, options Options) *Runner {
 		home:        options.Home,
 		queued:      func(string) {},
 		withTimeout: context.WithTimeout,
+		sent:        func(string) {},
 	}
+	runner.serviceContext, runner.stopServices = context.WithCancel(context.Background())
 	if options.Logger != nil {
 		runner.logger = options.Logger
 	}
 	if options.WaitDelay > 0 {
 		runner.waitDelay = options.WaitDelay
 	}
+	services := map[string]*service{}
 	for _, plugin := range plugins {
-		runner.entries[plugin.Command] = &entry{plugin: plugin}
+		found := &entry{plugin: plugin}
+		if plugin.Service != "" {
+			if services[plugin.Service] == nil {
+				services[plugin.Service] = &service{name: plugin.Service, onRun: plugin.OnRun}
+			}
+			found.service = services[plugin.Service]
+		}
+		runner.entries[plugin.Command] = found
 	}
 	return runner
 }
@@ -199,15 +229,24 @@ func New(plugins []config.Plugin, options Options) *Runner {
 // An error effect is an ordinary effect: a run can return one and succeed. If
 // the plugin exits with a failure status after printing an error effect, the
 // error carries that effect's text.
+//
+// A plugin with a service doesn't wait for other runs: the request goes to
+// the service (started first if it isn't running) and Run returns the run's
+// effects once the service prints its "done". It fails if the service ends
+// first, or prints a bad effect or too much for the run; a timeout or a
+// cancel leaves the service running.
 func (runner *Runner) Run(ctx context.Context, name string, request Request) ([]Effect, error) {
 	request.Protocol = Protocol
-	body, err := json.Marshal(request)
-	if err != nil {
-		return nil, fmt.Errorf("encode request for plugin %q: %w", name, err)
-	}
 	found, ok := runner.entries[name]
 	if !ok {
 		return nil, fmt.Errorf("plugin %q: %w", name, ErrUnknownPlugin)
+	}
+	if found.service != nil {
+		return runner.ask(ctx, found, request)
+	}
+	body, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("encode request for plugin %q: %w", name, err)
 	}
 	// The newline lets a shell script read the request with a plain read.
 	return runner.execute(ctx, found, append(body, '\n'))
@@ -423,6 +462,18 @@ func decodeEffect(line []byte) (effect Effect, known bool, err error) {
 			return Effect{}, false, errors.New("effect has no text")
 		}
 		effect.Text = data.Text
+		return effect, true, nil
+	case EffectCommand:
+		var data struct {
+			Line string `json:"line"`
+		}
+		if err := decodeData(decoded.Data, &data); err != nil {
+			return Effect{}, false, err
+		}
+		if strings.TrimSpace(data.Line) == "" {
+			return Effect{}, false, errors.New("effect has no line")
+		}
+		effect.Line = data.Line
 		return effect, true, nil
 	default:
 		return effect, false, nil

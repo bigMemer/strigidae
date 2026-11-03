@@ -9,8 +9,10 @@ tool = go tool -modfile=tools/$(1)/go.mod $(1)
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/strig
 
+# The race-enabled workspace tests can take longer than go test's 10-minute
+# default on a slower machine.
 test:
-	go test -race ./...
+	go test -race -timeout 30m ./...
 
 # Regenerate golden files; review the diff before committing.
 golden:

@@ -102,7 +102,7 @@ func DefaultGlobal() Global {
 		Help:               bind("?", "?", "toggle help"),
 		Command:            bind(":", ":", "command line (:q close, :qa quit)"),
 		Count:              bind("1", "1-9", "count: 11j, 3], 42G"),
-		Complete:           bind("tab", "tab", "complete a word, shift+tab back"),
+		Complete:           bind("tab", "tab", "complete on the : line"),
 	}
 }
 

@@ -3,6 +3,7 @@ package config
 import (
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -55,6 +56,9 @@ type Plugin struct {
 	Show Show
 	// Timeout bounds one run, from the moment it starts.
 	Timeout time.Duration
+	// Service, if set, names the long-running process that serves the
+	// plugin's runs. Plugins with the same Service share it, and their OnRun.
+	Service string
 	// Line is the line of the command in the file, for errors about it found
 	// after parsing (a name that is also a built-in command).
 	Line int
@@ -62,6 +66,27 @@ type Plugin struct {
 
 func (parser *parser) plugins(node *yaml.Node, config *Config) {
 	config.Plugins = uniqueList(parser, node, "plugins", parser.plugin, "duplicate plugin command %q")
+	parser.sameServicePrograms(node, config.Plugins)
+}
+
+// sameServicePrograms refuses two plugins of one service with different
+// programs: the service is one process, started from one on_run.
+func (parser *parser) sameServicePrograms(node *yaml.Node, plugins []Plugin) {
+	first := map[string]Plugin{}
+	for i, plugin := range plugins {
+		if plugin.Service == "" {
+			continue
+		}
+		earlier, seen := first[plugin.Service]
+		if !seen {
+			first[plugin.Service] = plugin
+			continue
+		}
+		if !slices.Equal(earlier.OnRun, plugin.OnRun) {
+			parser.fail(node.Content[i], "plugin %q: on_run differs from plugin %q of service %q; a service is one program", plugin.Command, earlier.Command, plugin.Service)
+			return
+		}
+	}
 }
 
 func (parser *parser) plugin(node *yaml.Node) (Plugin, string) {
@@ -85,8 +110,13 @@ func (parser *parser) plugin(node *yaml.Node) (Plugin, string) {
 			plugin.Show, showNode = Show(parser.oneOf(node, "show", showNames)), node
 		case "timeout":
 			plugin.Timeout = parser.duration(node, "plugin timeout")
+		case "service":
+			plugin.Service = parser.stringValue(node, "plugin service")
+			if parser.err == nil && !commandName.MatchString(plugin.Service) {
+				parser.fail(node, "plugin service %q must be a plain word (a letter, then letters, digits and hyphens)", plugin.Service)
+			}
 		}
-	}, []string{"command", "on_run", "target", "show", "timeout"})
+	}, []string{"command", "on_run", "target", "show", "timeout", "service"})
 	if parser.err == nil && plugin.Command == "" {
 		parser.fail(node, "plugin is missing a command")
 	}

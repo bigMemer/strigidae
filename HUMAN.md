@@ -4,6 +4,11 @@ Checks only the maintainer can do, such as live verification against real GitHub
 
 ## Live checks
 
+- [ ] **Local threads survive restarting strig** (#202). Only files in a temporary directory are tested.
+  1. Configure a `lines` plugin with `show: thread` (for example `docs/plugins.md`'s `ask`), open a pull request, move onto a diff line and run `:ask why?`. Wait for the answer, then quit (`:qa`) and start `strig` again on the same pull request. The question and the answer should be back on the same lines.
+  2. Run `:ask` with a plugin that takes a while, quit while the thread says `waiting for an answer…`, start `strig` again and open the pull request. The thread should say `no answer: strig was closed`.
+  3. Check `~/.local/state/strig/local-threads/<host>/<owner>/<name>/<number>.json` exists, is readable only by you, and that deleting the directory removes the saved answers. Report anything on screen that looks different after the restart.
+
 - [ ] **`Tab` completes on the command line in a real terminal** (#208). Only synthetic key events are tested; terminals differ in what they send for `shift+tab`.
   1. In a pull request list, press `:` then `Tab`. The first command fills in and a one-line list of every command appears just above the command line, the current one highlighted. `Tab` and `shift+tab` should move through it and wrap.
   2. Type `:set no` then `Tab`, and `:theme ` then `Tab`. Option and theme names should cycle. Type a character: the list closes and the match stays.
