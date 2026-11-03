@@ -41,6 +41,8 @@ const (
 	MethodGetMergeStatus     = "GetMergeStatus"
 	MethodMergePullRequest   = "MergePullRequest"
 	MethodUpdatePullRequest  = "UpdatePullRequest"
+	MethodMarkReadyForReview = "MarkReadyForReview"
+	MethodConvertToDraft     = "ConvertToDraft"
 	MethodListBranches       = "ListBranches"
 	MethodCreatePullRequest  = "CreatePullRequest"
 )
@@ -115,6 +117,7 @@ type Client struct {
 	merge          map[github.Repository]MergeSettings
 	merges         []Merge
 	updates        []github.UpdatePullRequestInput
+	draftChanges   []DraftChange
 	branches       map[github.Repository][]github.Branch
 	created        []github.CreatePullRequestInput
 	added          []github.AddThreadInput

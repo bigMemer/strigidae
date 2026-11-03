@@ -193,7 +193,10 @@ func (view *View) pullRequestLoaded(message pullRequestLoadedMessage) tea.Cmd {
 	view.selectionChanged()
 	view.search.Refresh(view.searchList()) // the paths may differ with the same rows
 	view.layout()
-	return nil
+	// The root reads the pull request's saved local threads the first time it
+	// hears of it, and ignores later loads.
+	identity, _ := view.PullRequestIdentity()
+	return func() tea.Msg { return userinterface.PullRequestOpenedMessage{Identity: identity} }
 }
 
 func (view *View) threadsLoaded(message threadsLoadedMessage) tea.Cmd {

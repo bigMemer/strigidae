@@ -34,6 +34,8 @@ const (
 	writeDiscard
 	// writePullRequest: `:edit-pull-request`. It needs no diff.
 	writePullRequest
+	// writeDraftState: `:ready`, `:draft`. It needs no diff.
+	writeDraftState
 	// usePluginLines and usePluginPullRequest are not writes: the commands of
 	// plugins (see plugins.go) write nothing to GitHub, so nothing blocks them
 	// but missing data. They share the guard so the "not loaded" notices are
@@ -71,6 +73,7 @@ var guardTable = map[writeKind]guardRule{
 	writeMerge:           {needsDiff: true, busy: allBusy},
 	writeDiscard:         {busy: allBusy},
 	writePullRequest:     {busy: allBusy},
+	writeDraftState:      {busy: allBusy},
 
 	usePluginLines:       {needsDiff: true},
 	usePluginPullRequest: {},

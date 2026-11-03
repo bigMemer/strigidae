@@ -131,6 +131,10 @@ func TestCompletion(test *testing.T) {
 		{"theme lists every name", []string{"theme", "space", "tab"}, "theme " + scheme.Names()[0], scheme.Names()},
 		{"theme takes only one word", []string{"theme", "space", "a", "space", "tab"}, "theme a ", nil},
 		{"another command's arguments are left alone", []string{"quit", "space", "tab"}, "quit ", nil},
+		{"leading space completes a command", []string{"space", "q", "tab", "tab"}, " quit", prefixed("q", shell)},
+		{"leading space completes a set option", []string{"space", "set", "space", "wr", "tab"}, " set wrapscan", prefixed("wr", options)},
+		{"extra spaces before a theme name", []string{"theme", "space", "space", "tab"}, "theme  " + scheme.Names()[0], scheme.Names()},
+		{"extra spaces before a set option", []string{"set", "space", "space", "wr", "tab"}, "set  wrapscan", prefixed("wr", options)},
 		{"a command with no argument words is left alone", []string{"create", "space", "tab"}, "create ", nil},
 	}
 	for _, testCase := range tests {

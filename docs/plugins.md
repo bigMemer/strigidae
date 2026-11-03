@@ -122,16 +122,31 @@ error to give `show` to a `pull-request` plugin.
   If it prints both an `answer` and an `error`, the thread shows the answer.
 - `notice` and `reload` effects of the run work as for any plugin, and an
   `error` printed beside an `answer` also goes to the status bar.
-- The thread is **local to strig**. It is never sent to GitHub and is gone when
-  strig quits. `r`, `x`, `:resolve`, `:unresolve`, `e`, `D`, `:edit-comment`,
+- The thread is **local to strig**. It is never sent to GitHub. It is kept on
+  your disk, below. `r`, `x`, `:resolve`, `:unresolve`, `e`, `D`, `:edit-comment`,
   `:delete-comment` and `:react` on it say `this answer is local to strig, not
   on GitHub: nothing to <action>` and do nothing. It is never resolved, never a
   draft, and not counted among the pull request's threads or unresolved
   threads. Folding (`z a`), `)` / `(`, `:set hideresolved`, `skipresolved` and
   search treat it like any other thread.
-- Threads are kept by repository and pull request number for as long as strig
-  runs, so an answer that arrives while the pull request is closed is there
-  when you open it again.
+- Threads are kept by host, repository and pull request number, so an answer that
+  arrives while the pull request is closed is there when you open it again.
+- **Answers survive restarting strig.** Each pull request has a file,
+  `strig/local-threads/<host>/<owner>/<name>/<number>.json` under
+  `$XDG_STATE_HOME` (`~/.local/state` if it is not set), written after every
+  change and read the first time you open that pull request in a run. A
+  question that was still waiting when strig exited shows
+  `no answer: strig was closed`. The directory is private to you (`0700`, files
+  `0600`). Only the 200 newest questions of a pull request are kept, and only
+  as many as fit in 4 MiB of file; asking another, or a long answer, drops the
+  oldest, from the screen and from the file. Removing the
+  directory deletes every saved answer; strig never cleans it up itself. A file
+  strig can't read (damaged, from a newer strig, or over 4 MiB) is logged,
+  ignored, and renamed to `<number>.json.unreadable` before strig next writes
+  that pull request, so it is not overwritten. Nothing is kept when strig can't
+  tell the pull request's host.
+  Two strig processes on the same pull request can overwrite each other's new
+  answers: each reads the file once and rewrites it whole.
 - **Outdated.** A thread remembers the head commit it was asked on. When the
   diff on screen is of another head, it is marked `[outdated]`, muted, and
   listed after the last row of its file with its location, as GitHub's

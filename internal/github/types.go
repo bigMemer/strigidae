@@ -463,6 +463,15 @@ type AddThreadInput struct {
 	Body                    string
 }
 
+// DraftStateInput names the pull request whose draft state MarkReadyForReview
+// or ConvertToDraft changes.
+type DraftStateInput struct {
+	Repository Repository
+	Number     int
+	// PullRequestIdentifier is PullRequest.Identifier.
+	PullRequestIdentifier string
+}
+
 // UpdatePullRequestInput is what UpdatePullRequest changes: the title and the
 // body, both always sent.
 type UpdatePullRequestInput struct {

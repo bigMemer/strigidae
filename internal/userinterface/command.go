@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"unicode"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
@@ -38,17 +39,34 @@ func CommandNames() []string {
 	return names
 }
 
+// splitCommandLine reads a command line as running it does: leading spaces and
+// the spaces between the command and its arguments are ignored. leading and gap
+// are those spaces as typed, so a caller can keep them. arguments keeps any
+// trailing spaces; hasArguments is true once a space follows the name.
+func splitCommandLine(line string) (leading, name, gap, arguments string, hasArguments bool) {
+	rest := strings.TrimLeftFunc(line, unicode.IsSpace)
+	leading = line[:len(line)-len(rest)]
+	name, afterName, hasArguments := strings.Cut(rest, " ")
+	arguments = strings.TrimLeftFunc(afterName, unicode.IsSpace)
+	if hasArguments {
+		gap = " " + afterName[:len(afterName)-len(arguments)]
+	}
+	return leading, name, gap, arguments, hasArguments
+}
+
 // parseCommand turns a command line (without the ":") into a command. An
 // empty line does nothing. The static table is consulted first; then top, if
 // it is a Commander and the name is in viewCommands (the names every view
 // declares, from Options.ViewCommands). A name nobody handles yields an error
 // message.
 func parseCommand(line string, top View, viewCommands []string) tea.Cmd {
-	line = strings.TrimSpace(line)
-	if line == "" {
+	if strings.TrimSpace(line) == "" {
 		return nil
 	}
-	name, arguments, _ := strings.Cut(line, " ")
+	_, name, _, arguments, _ := splitCommandLine(line)
+	// The name is only cut at an ASCII space; trailing white space of any
+	// kind with no space before it (a no-break space) is not part of it.
+	name = strings.TrimSpace(name)
 	arguments = strings.TrimSpace(arguments)
 	for _, definition := range commandTable() {
 		for _, alias := range definition.names {

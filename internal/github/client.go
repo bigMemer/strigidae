@@ -51,6 +51,14 @@ type Client interface {
 	// decides by permissions (see PullRequestDetail.ViewerCanUpdate); a refusal
 	// comes back as an error.
 	UpdatePullRequest(ctx context.Context, in UpdatePullRequestInput) error
+	// MarkReadyForReview takes the pull request out of draft; reviewers are
+	// notified. GitHub's refusal (no permission, not a draft) comes back as an
+	// error.
+	MarkReadyForReview(ctx context.Context, in DraftStateInput) error
+	// ConvertToDraft turns the pull request back into a draft. GitHub's
+	// refusal (no permission, a plan without drafts, already a draft) comes
+	// back as an error.
+	ConvertToDraft(ctx context.Context, in DraftStateInput) error
 	// StartReview creates the viewer's pending review on in.CommitObjectIdentifier and
 	// returns it. GitHub allows one pending review per user per pull request,
 	// so this fails when one exists; call GetReviewStatus first.

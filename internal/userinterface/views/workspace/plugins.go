@@ -169,7 +169,7 @@ func (view *View) PullRequestIdentity() (userinterface.PullRequestIdentity, bool
 	if view.detail == nil {
 		return userinterface.PullRequestIdentity{}, false
 	}
-	return userinterface.PullRequestIdentity{Repository: view.repository, Number: view.number, Head: view.detail.HeadSHA}, true
+	return userinterface.PullRequestIdentity{Host: view.host(), Repository: view.repository, Number: view.number, Head: view.detail.HeadSHA}, true
 }
 
 // Reload implements userinterface.PluginHost: the same reload as refresh.

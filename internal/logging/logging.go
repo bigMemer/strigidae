@@ -10,17 +10,26 @@ import (
 	"path/filepath"
 )
 
-// Path returns the log file location: $XDG_STATE_HOME/strig/strig.log, falling
-// back to ~/.local/state/strig/strig.log. getEnvironment and home are injected for tests.
-func Path(getEnvironment func(string) string, home func() (string, error)) (string, error) {
+// StateDirectory returns the directory strig keeps its state in: $XDG_STATE_HOME,
+// falling back to ~/.local/state. getEnvironment and home are injected for tests.
+func StateDirectory(getEnvironment func(string) string, home func() (string, error)) (string, error) {
 	if directory := getEnvironment("XDG_STATE_HOME"); directory != "" && filepath.IsAbs(directory) {
-		return filepath.Join(directory, "strig", "strig.log"), nil
+		return directory, nil
 	}
 	homeDirectory, err := home()
 	if err != nil {
 		return "", fmt.Errorf("find home directory: %w", err)
 	}
-	return filepath.Join(homeDirectory, ".local", "state", "strig", "strig.log"), nil
+	return filepath.Join(homeDirectory, ".local", "state"), nil
+}
+
+// Path returns the log file location: strig/strig.log under StateDirectory.
+func Path(getEnvironment func(string) string, home func() (string, error)) (string, error) {
+	directory, err := StateDirectory(getEnvironment, home)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(directory, "strig", "strig.log"), nil
 }
 
 // Open creates the log file (and its directory) and returns a logger writing

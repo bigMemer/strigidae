@@ -55,19 +55,19 @@ func optionWords() []string {
 // and what it may become. before is the line up to that word. ok is false
 // where Tab completes nothing.
 func (model *Model) completionCandidates(line string) (before string, candidates []string, ok bool) {
-	name, arguments, hasArguments := strings.Cut(line, " ")
+	leading, name, gap, arguments, hasArguments := splitCommandLine(line)
 	if !hasArguments {
-		return "", commandNames(model.top()), true
+		return leading, commandNames(model.top()), true
 	}
 	switch name {
 	case "set":
 		start := strings.LastIndexByte(arguments, ' ') + 1
-		return name + " " + arguments[:start], optionWords(), true
+		return leading + name + gap + arguments[:start], optionWords(), true
 	case "theme":
 		if strings.Contains(arguments, " ") {
 			return "", nil, false
 		}
-		return name + " ", scheme.Names(), true
+		return leading + name + gap, scheme.Names(), true
 	}
 	return "", nil, false
 }
@@ -119,7 +119,7 @@ func (commandLine *commandLine) fill(text string) {
 // while there is one.
 func (model *Model) overlayCompletion(content string) string {
 	current := model.commandLine.completion
-	if current == nil || !model.commandLine.active || model.commandLine.prompt != "" || content == "" {
+	if current == nil || content == "" {
 		return content
 	}
 	rows := strings.Split(content, "\n")
