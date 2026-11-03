@@ -175,6 +175,17 @@ func (view *View) PullRequestIdentity() (userinterface.PullRequestIdentity, bool
 // Reload implements userinterface.PluginHost: the same reload as refresh.
 func (view *View) Reload() tea.Cmd { return view.refresh() }
 
+// ReadOnlyCommand implements userinterface.PluginHost: one of the workspace's
+// commands with no write guard, run as Command runs it. Plugin commands have
+// a guard of their own, so a plugin can't start a run.
+func (view *View) ReadOnlyCommand(name, arguments string) (tea.Cmd, bool) {
+	chosen, ok := view.commandEntry(name)
+	if !ok || chosen.guard != writeNone {
+		return nil, false
+	}
+	return view.Command(name, arguments)
+}
+
 // KeepsCommandLine implements userinterface.CommandLineKeeper: ":" opens the
 // command line during a line selection, so a `lines` plugin can use it. With
 // no such plugin configured the selection ignores ":" as it always did.

@@ -810,3 +810,55 @@ func TestPluginEntriesHaveTheRegistryShape(test *testing.T) {
 		test.Errorf("a plugin named like a built-in took over :approve")
 	}
 }
+
+// A command effect runs the workspace's read-only commands, and none that
+// write or start another plugin.
+func TestPluginCommandEffectRunsOnlyReadOnlyCommands(test *testing.T) {
+	for _, testCase := range []struct {
+		line      string
+		wantInfos []string
+		wantError string
+	}{
+		{"checks", []string{"No checks."}, ""}, // the test pull request has none
+		{"approve", nil, "plugin summarize can't run :approve"},
+		{"resolve", nil, "plugin summarize can't run :resolve"},
+		{"summarize", nil, "plugin summarize can't run :summarize"},
+	} {
+		test.Run(testCase.line, func(test *testing.T) {
+			runner := &recordingRunner{effects: []plugins.Effect{{Name: plugins.EffectCommand, Line: testCase.line}}}
+			session := newPluginSession(test, runner)
+			session.line("summarize")
+			if diff := cmp.Diff(testCase.wantInfos, session.infos); diff != "" {
+				test.Errorf("notices (-want +got):\n%s", diff)
+			}
+			if session.runs() != 1 {
+				test.Errorf("%d runs, want the one typed", session.runs())
+			}
+			if _, asked := session.inliner.lastConfirm(); asked {
+				test.Error("a question was asked")
+			}
+			if testCase.wantError != "" && !strings.HasSuffix(session.status(), testCase.wantError) {
+				test.Errorf("status = %q, want %q", session.status(), testCase.wantError)
+			}
+		})
+	}
+}
+
+// A command a plugin runs keeps the rules of a typed one: a line selection
+// that is still open refuses it.
+func TestPluginCommandEffectDuringASelection(test *testing.T) {
+	session := newPluginSession(test, &recordingRunner{})
+	session.inliner.moveTo(github.SideRight, 17)
+	session.press("V")
+	command, handled := session.inliner.view.ReadOnlyCommand("checks", "")
+	if !handled {
+		test.Fatal(":checks not taken")
+	}
+	session.pump(command)
+	if diff := cmp.Diff([]string{"end the selection to run :checks"}, session.infos); diff != "" {
+		test.Errorf("notices (-want +got):\n%s", diff)
+	}
+	if session.inliner.view.picker != nil {
+		test.Error("the checks picker opened under the selection")
+	}
+}

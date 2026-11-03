@@ -56,6 +56,9 @@ const (
 	EffectReload = "reload"
 	// EffectAnswer carries an answer to show to the user.
 	EffectAnswer = "answer"
+	// EffectCommand asks strig to run one of its commands that write nothing;
+	// Line is the command line.
+	EffectCommand = "command"
 )
 
 // Errors a run can fail with, to be tested with errors.Is.
@@ -114,14 +117,17 @@ type Target struct {
 	Excerpt string `json:"excerpt"`
 }
 
-// Effect is one thing a plugin asked for. Text is empty for effects that have
-// none. It is untrusted: sanitise it where it is shown. The same goes for the
+// Effect is one thing a plugin asked for. Text and Line are empty for effects
+// that have none. It is untrusted: sanitise it where it is shown. The same goes for the
 // text of an error effect that reaches the caller as the text of an error
 // returned by Run: it is plugin-controlled, up to MaximumOutputSize long and
 // may hold terminal escapes, so clean it (terminaltext.Clean) where it is shown.
 type Effect struct {
 	Name string
 	Text string
+	// Line is the command line of a command effect, without the ":". It is
+	// as untrusted as Text.
+	Line string
 }
 
 // Options are the inputs a Runner takes instead of reading globals.
@@ -423,6 +429,18 @@ func decodeEffect(line []byte) (effect Effect, known bool, err error) {
 			return Effect{}, false, errors.New("effect has no text")
 		}
 		effect.Text = data.Text
+		return effect, true, nil
+	case EffectCommand:
+		var data struct {
+			Line string `json:"line"`
+		}
+		if err := decodeData(decoded.Data, &data); err != nil {
+			return Effect{}, false, err
+		}
+		if strings.TrimSpace(data.Line) == "" {
+			return Effect{}, false, errors.New("effect has no line")
+		}
+		effect.Line = data.Line
 		return effect, true, nil
 	default:
 		return effect, false, nil

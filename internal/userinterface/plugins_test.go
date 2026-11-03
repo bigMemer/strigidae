@@ -32,6 +32,7 @@ type pullRequestView struct {
 	identity PullRequestIdentity
 	loaded   bool
 	reloads  int
+	ran      []string // the read-only commands run, as "name|arguments"
 }
 
 func newPullRequestView(identity PullRequestIdentity) *pullRequestView {
@@ -50,6 +51,18 @@ func (view *pullRequestView) PullRequestIdentity() (PullRequestIdentity, bool) {
 func (view *pullRequestView) Reload() tea.Cmd {
 	view.reloads++
 	return nil
+}
+
+// readOnly is the one command that writes nothing; ReadOnlyCommand records
+// what it ran.
+const readOnly = "copy-filename"
+
+func (view *pullRequestView) ReadOnlyCommand(name, arguments string) (tea.Cmd, bool) {
+	if name != readOnly {
+		return nil, false
+	}
+	view.ran = append(view.ran, name+"|"+arguments)
+	return nil, true
 }
 
 // fakeRunner answers every run at once with its canned result.
@@ -148,6 +161,52 @@ func TestPluginEffects(test *testing.T) {
 				test.Errorf("reloads = %d, want %d", root.reloads, testCase.reloads)
 			}
 		})
+	}
+}
+
+// A command effect runs a read-only command of the view on screen, and
+// nothing else.
+func TestPluginCommandEffect(test *testing.T) {
+	for _, testCase := range []struct {
+		line     string
+		wantRan  []string
+		wantText string
+	}{
+		{"copy-filename", []string{"copy-filename|"}, ""},
+		{"  :copy-filename   a  b ", []string{"copy-filename|a  b"}, ""},
+		{"approve", nil, "plugin ask can't run :approve"},
+		{"qa", nil, "plugin ask can't run :qa"},
+		{"set nowrap", nil, "plugin ask can't run :set"},
+		{"nope", nil, "not a command: nope"},
+		{"no\x1b]0;pe", nil, "not a command: no ]0;pe"},
+	} {
+		test.Run(testCase.line, func(test *testing.T) {
+			root := newPullRequestView(pullRequestSeven)
+			model, _ := pluginModel(test, &fakeRunner{effects: []plugins.Effect{{Name: plugins.EffectCommand, Line: testCase.line}}}, root)
+			step(model, startRun(model, pullRequestSeven)())
+			if diff := cmp.Diff(testCase.wantRan, root.ran); diff != "" {
+				test.Errorf("commands run (-want +got):\n%s", diff)
+			}
+			if model.status.text != testCase.wantText {
+				test.Errorf("status = %q, want %q", model.status.text, testCase.wantText)
+			}
+			if model.quitting {
+				test.Error("a plugin quit strig")
+			}
+		})
+	}
+}
+
+// A command effect for a pull request that is no longer on screen is dropped
+// with the other effects.
+func TestPluginCommandEffectNeedsItsPullRequest(test *testing.T) {
+	root := newPullRequestView(pullRequestSeven)
+	model, _ := pluginModel(test, &fakeRunner{effects: []plugins.Effect{{Name: plugins.EffectCommand, Line: readOnly}}}, root)
+	result := startRun(model, pullRequestSeven)()
+	root.identity = PullRequestIdentity{Repository: pullRequestSeven.Repository, Number: 8}
+	step(model, result)
+	if len(root.ran) != 0 {
+		test.Errorf("ran %v on another pull request", root.ran)
 	}
 }
 

@@ -77,6 +77,10 @@ type PluginHost interface {
 	PullRequestIdentity() (identity PullRequestIdentity, ok bool)
 	// Reload reloads what the view shows, as its refresh key does.
 	Reload() tea.Cmd
+	// ReadOnlyCommand runs the view's command name with the arguments, as if
+	// they were typed, when it is one that writes nothing. ok is false for
+	// any other name, which the view leaves alone.
+	ReadOnlyCommand(name, arguments string) (command tea.Cmd, ok bool)
 }
 
 // CommandLineKeeper is implemented by a KeyCapturer that lets ":" open the
@@ -285,11 +289,34 @@ func (model *Model) pluginEffects(host PluginHost, name string, effects []plugin
 			commands = append(commands, model.setStatus(terminaltext.Clean(effect.Text), statusError))
 		case plugins.EffectReload:
 			commands = append(commands, host.Reload())
+		case plugins.EffectCommand:
+			commands = append(commands, model.pluginCommand(host, name, effect.Line))
 		default:
 			model.log.Warn("plugin effect not handled", slog.String("plugin", name), slog.String("effect", effect.Name))
 		}
 	}
 	return tea.Batch(commands...)
+}
+
+// pluginCommand runs the command line of a command effect, if it is a command
+// of the host that writes nothing: a plugin may show and navigate, never
+// write. The shell's own commands are never run, so a plugin can't quit or
+// change the options. The line is the plugin's, so what is shown of it is
+// cleaned.
+func (model *Model) pluginCommand(host PluginHost, plugin, line string) tea.Cmd {
+	_, name, _, arguments, _ := splitCommandLine(strings.TrimPrefix(strings.TrimSpace(line), ":"))
+	name, arguments = strings.TrimSpace(name), strings.TrimSpace(arguments)
+	shell := slices.Contains(CommandNames(), name)
+	if !shell {
+		if command, ok := host.ReadOnlyCommand(name, arguments); ok {
+			return command
+		}
+	}
+	if !shell && !slices.Contains(model.viewCommands, name) {
+		return model.setStatus("not a command: "+terminaltext.Clean(name), statusError)
+	}
+	model.log.Info("plugin command refused", "plugin", plugin, "command", name)
+	return model.setStatus("plugin "+plugin+" can't run :"+terminaltext.Clean(name), statusError)
 }
 
 // quit ends the program. With plugin runs under way they are cancelled and

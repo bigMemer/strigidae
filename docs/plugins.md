@@ -218,6 +218,7 @@ The plugin prints JSON lines on standard output. Each line is one *effect*:
 | `error` | `{"text": ...}` | A failure and its reason. With a failure exit status the run fails with this text; with exit 0 the effect is returned like any other |
 | `answer` | `{"text": ...}` | An answer to show to the user: a notice, or the answer of a local thread with `show: thread` |
 | `reload` | `{}` | Reload the pull request on screen, as `R` does |
+| `command` | `{"line": ...}` | Run one of strig's commands that write nothing, as if `:` and the line had been typed: see "Commands a plugin can run" |
 
 Rules:
 
@@ -227,7 +228,8 @@ Rules:
 - A line that is not a JSON object with a `name` fails the run. So does a known
   effect with bad `data`: `data` may be left out (or `null`) and otherwise must
   be an object, and `notice`, `error` and `answer` need a non-empty string
-  `text` in it. `reload` needs no data.
+  `text` in it. `reload` needs no data. `command` needs a non-blank string
+  `line`.
 - `error` is an effect like the others: a run can print one and still exit 0.
 - Text in effects can hold anything the program printed, including terminal
   escape sequences. strig cleans it where it is shown.
@@ -238,6 +240,28 @@ Standard error is written to strig's log file (`strig --log-path` prints where)
 and never shown on the screen, one log record per line with the plugin's name,
 so the text cannot pass as a log line of strig's own. Only the first 64 KiB of
 a run's standard error is kept, followed by a note; the rest is dropped.
+
+## Commands a plugin can run
+
+A `command` effect runs a command of the pull request workspace that writes
+nothing to GitHub: today `:checks`, `:copy-filename` and `:copy-url`, and any
+such command added later. The line is the command and its arguments, as typed
+after `:` (a leading `:` is allowed):
+
+```json
+{"name": "command", "data": {"line": "checks"}}
+```
+
+It runs in the pull request the plugin was run from, in the order the effects
+were printed, and only while that pull request is on screen, like every
+effect. It keeps the rules of a typed command: during a line selection it is
+refused with `end the selection to run :<name>`.
+
+A plugin can show and navigate, never write. A command that writes
+(`:approve`, `:resolve`, `:merge`, ...), a plugin command and strig's own
+commands (`:q`, `:qa`, `:set`, `:theme`) are refused with `plugin <plugin>
+can't run :<name>` in the status bar; a word that is no command says `not a
+command: <name>`.
 
 ## Exit status
 
