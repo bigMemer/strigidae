@@ -36,6 +36,7 @@ plugins:
 | `target` | yes | What the command acts on: `lines` or `pull-request` |
 | `show` | no | Where the answer is drawn. The only value is `thread`, and only with `target: lines`: see "Answers as local threads". Without it the answer is a notice |
 | `timeout` | no | How long one run may take, as a Go duration such as `90s` or `2m`. Above zero. Default `60s` |
+| `service` | no | A plain word naming a long-running process that serves the plugin's runs, shared by every plugin with the same `service`; they must have the same `on_run`. See "Services" |
 
 Unknown keys are errors, like everywhere in the config. So is a `command` that
 is already a command of strig itself (`approve`, `merge`, `q`, ...): the
@@ -288,7 +289,60 @@ not stop a running plugin either.
 
 Runs of one plugin go one at a time, in the order they were asked for; the
 others wait. A run that is cancelled while it waits leaves without running.
-Different plugins do not wait for each other.
+Different plugins do not wait for each other, and runs of a plugin with a
+`service` don't wait at all (see "Services").
+
+## Services
+
+A plugin with `service: <name>` is not started once per run. strig starts its
+program at the first run of any plugin of that service and keeps it running,
+so one process serves every run of those plugins. It suits a program that
+holds something open between runs (a session, a connection only one process
+may have) or whose replies take long: runs of a service don't wait for each
+other.
+
+```yaml
+plugins:
+  - {command: ask,       on_run: [my-helper], target: lines,        show: thread, service: helper, timeout: 10m}
+  - {command: summarize, on_run: [my-helper], target: pull-request,               service: helper}
+```
+
+What differs from a one-off run:
+
+- **Requests** are written to the process's standard input, one JSON line per
+  run, as described in "What strig sends", with an `id` string added (the
+  standard input stays open). The `command` field says which plugin the run
+  is for.
+- **Effects** are printed one JSON line each, as in "What the plugin prints",
+  with the run's `id` beside `name` and `data`. `{"id": "...", "name": "done"}`
+  ends the run; its effects are then handled as those of a one-off run are.
+  The effects of several runs may be printed in any order.
+
+  ```json
+  {"id": "3", "name": "answer", "data": {"text": "It retries five times."}}
+  {"id": "3", "name": "done"}
+  ```
+
+- **Bad output** does not end the service: a line that is not JSON with an
+  `id`, or whose `id` is no run under way (one that timed out, for example),
+  is logged and skipped. A bad effect with the `id` of a run under way (bad
+  `data`, no `name`) fails that run, as it would fail a one-off run. More than
+  1 MiB of effects for one run fails the run. A single line longer than 1 MiB
+  cannot be read: strig kills the process and its runs fail.
+- **The timeout** is per run and starts when the run starts. A run that times
+  out fails, and the process keeps running; what it prints for the run later
+  is skipped.
+- **Exit status** does not decide runs. When the process ends, the runs under
+  way fail with `plugin "<name>": exited`, and the next run starts it again.
+- **Quitting strig** kills the process, on every path out, as it kills runs.
+  Should the kill not finish within the quit wait, the process's standard
+  input still ends as strig exits, so a service should also exit at the end
+  of its input.
+- **Standard error** goes to the log as for runs, with the 64 KiB limit for
+  each start of the process.
+
+A service runs in a session of its own and gets the environment described
+below, like any plugin.
 
 ## The environment
 

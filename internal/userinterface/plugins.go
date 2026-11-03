@@ -91,6 +91,10 @@ type CommandLineKeeper interface {
 	KeepsCommandLine() bool
 }
 
+// pluginStopper is a runner with processes that outlive a run, the services
+// of *plugins.Runner: Close ends them once the runs have ended.
+type pluginStopper interface{ Stop() }
+
 // pluginRun is a run the root has started and not yet heard back from.
 type pluginRun struct {
 	identity PullRequestIdentity
@@ -331,8 +335,9 @@ func (model *Model) quit() tea.Cmd {
 	return model.tick(model.pluginQuitWait, func(time.Time) tea.Msg { return quitWaitedMessage{} })
 }
 
-// Close cancels every plugin run and waits for them to end, and writes the
-// local threads that changed since their last write, all within one quit wait.
+// Close cancels every plugin run and waits for them to end, then kills the
+// runner's services, and writes the local threads that changed since their
+// last write, all within one quit wait.
 // The writes do not wait for the runs, and do not depend on any command having
 // run. cmd/strig calls it after the program returns, on every path:
 // an exit that never reaches Update (SIGTERM ends Bubble Tea with a QuitMsg that
@@ -353,8 +358,27 @@ func (model *Model) Close() {
 	case <-timeout:
 		return
 	}
-	if model.pluginCancel != nil {
-		waitFor(&model.pluginRunning, timeout)
+	if model.pluginCancel != nil && waitFor(&model.pluginRunning, timeout) {
+		model.stopServices(timeout)
+	}
+}
+
+// stopServices kills the runner's services, if it has any, and waits for
+// them within the timeout. A service left behind by a timeout still sees its
+// standard input end when strig exits.
+func (model *Model) stopServices(timeout <-chan time.Time) {
+	stopper, ok := model.pluginRunner.(pluginStopper)
+	if !ok {
+		return
+	}
+	stopped := make(chan struct{})
+	go func() {
+		stopper.Stop()
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+	case <-timeout:
 	}
 }
 

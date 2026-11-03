@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unicode"
@@ -567,4 +568,44 @@ func TestQuitBoundHoldsWhateverTheRunnerDoes(test *testing.T) {
 	}
 	close(runner.let)
 	<-results
+}
+
+// stoppingRunner has services: Run waits for its context to end, and Stop
+// records when it came.
+type stoppingRunner struct {
+	mutex  sync.Mutex
+	events []string
+}
+
+func (runner *stoppingRunner) Run(ctx context.Context, _ string, _ plugins.Request) ([]plugins.Effect, error) {
+	<-ctx.Done()
+	runner.record("run ended")
+	return nil, ctx.Err()
+}
+
+func (runner *stoppingRunner) Stop() { runner.record("stopped") }
+
+func (runner *stoppingRunner) record(event string) {
+	runner.mutex.Lock()
+	defer runner.mutex.Unlock()
+	runner.events = append(runner.events, event)
+}
+
+// Close ends the runs, then the runner's services.
+func TestCloseStopsTheServicesAfterTheRuns(test *testing.T) {
+	runner := &stoppingRunner{}
+	model, _ := pluginModel(test, runner, newPullRequestView(pullRequestSeven))
+	run := startRun(model, pullRequestSeven)
+	done := make(chan struct{})
+	go func() {
+		run()
+		close(done)
+	}()
+	model.Close()
+	<-done
+	runner.mutex.Lock()
+	defer runner.mutex.Unlock()
+	if diff := cmp.Diff([]string{"run ended", "stopped"}, runner.events); diff != "" {
+		test.Errorf("events (-want +got):\n%s", diff)
+	}
 }

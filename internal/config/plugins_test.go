@@ -41,6 +41,15 @@ func TestParsePlugins(test *testing.T) {
 			},
 		},
 		{
+			"a service shared by two plugins",
+			"plugins:\n  - {command: ask, on_run: [x, -v], target: lines, service: helper}\n  - {command: sum, on_run: [x, -v], target: pull-request, service: helper}\n  - {command: other, on_run: [y], target: lines, service: Other-2}\n",
+			[]Plugin{
+				{Command: "ask", OnRun: []string{"x", "-v"}, Target: TargetLines, Timeout: DefaultPluginTimeout, Service: "helper", Line: 2},
+				{Command: "sum", OnRun: []string{"x", "-v"}, Target: TargetPullRequest, Timeout: DefaultPluginTimeout, Service: "helper", Line: 3},
+				{Command: "other", OnRun: []string{"y"}, Target: TargetLines, Timeout: DefaultPluginTimeout, Service: "Other-2", Line: 4},
+			},
+		},
+		{
 			"two plugins keep file order",
 			"plugins:\n  - {command: b-2, on_run: [x], target: lines}\n  - {command: A1, on_run: [y, '1'], target: lines}\n",
 			[]Plugin{
@@ -104,12 +113,15 @@ func TestParsePluginErrors(test *testing.T) {
 		{"zero timeout", "plugins:\n  - {command: ask, on_run: [x], target: lines, timeout: 0s}\n", "c.yml:2: plugin timeout must be a positive duration such as 10s or 1m30s"},
 		{"timeout without unit", "plugins:\n  - {command: ask, on_run: [x], target: lines, timeout: 30}\n", "c.yml:2: plugin timeout must be a positive duration such as 10s or 1m30s"},
 		{"negative timeout", "plugins:\n  - {command: ask, on_run: [x], target: lines, timeout: -1m}\n", "c.yml:2: plugin timeout must be a positive duration such as 10s or 1m30s"},
-		{"unknown key", "plugins:\n  - {command: ask, on_run: [x], target: lines, display: inline}\n", `c.yml:2: unknown key "display" in a plugin (valid keys: command, on_run, target, show, timeout)`},
+		{"unknown key", "plugins:\n  - {command: ask, on_run: [x], target: lines, display: inline}\n", `c.yml:2: unknown key "display" in a plugin (valid keys: command, on_run, target, show, timeout, service)`},
 		{"show value unknown", "plugins:\n  - {command: ask, on_run: [x], target: lines, show: inline}\n", `c.yml:2: show "inline" is not one of: thread`},
 		{"show is a list", "plugins:\n  - {command: ask, on_run: [x], target: lines, show: [thread]}\n", "c.yml:2: show must be a non-empty text value"},
 		{"show needs lines", "plugins:\n  - {command: ask, on_run: [x], target: pull-request, show: thread}\n", `c.yml:2: plugin "ask": show thread needs target lines`},
 		{"show on the second plugin is located there", "plugins:\n  - {command: a, on_run: [x], target: lines, show: thread}\n  - {command: b,\n    on_run: [x],\n    target: pull-request,\n    show: thread}\n", `c.yml:6: plugin "b": show thread needs target lines`},
 		{"duplicate key", "plugins:\n  - {command: ask, command: b, on_run: [x], target: lines}\n", `c.yml:2: duplicate key "command" in a plugin`},
+		{"service is not a word", "plugins:\n  - {command: ask, on_run: [x], target: lines, service: 'a b'}\n", `c.yml:2: plugin service "a b" must be a plain word (a letter, then letters, digits and hyphens)`},
+		{"service is empty", "plugins:\n  - {command: ask, on_run: [x], target: lines, service: ''}\n", "c.yml:2: plugin service must be a non-empty text value"},
+		{"one service, two programs", "plugins:\n  - {command: a, on_run: [x], target: lines, service: s}\n  - {command: b, on_run: [y], target: lines}\n  - {command: c, on_run: [x, -v], target: lines, service: s}\n", `c.yml:4: plugin "c": on_run differs from plugin "a" of service "s"; a service is one program`},
 	} {
 		test.Run(testCase.name, func(test *testing.T) {
 			_, err := Parse("c.yml", []byte(testCase.yaml))

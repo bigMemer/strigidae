@@ -73,8 +73,10 @@ Optional. Commands that run a program of your own, each with a `command` name
 (a plain word), an `on_run` list (the program and its arguments), a `target`
 (`lines` or `pull-request`), an optional `show` (`thread`, only with
 `target: lines`: the answer is drawn in the diff as a local thread, see
-[plugins.md](plugins.md)) and an optional `timeout` (default `60s`).
-Command names must be unique. Plugins are read only from this file, never from
+[plugins.md](plugins.md)), an optional `timeout` (default `60s`) and an
+optional `service` (a plain word: the plugin's runs go to one long-running
+process, shared by the plugins with the same `service`, which must have the
+same `on_run`; see [plugins.md](plugins.md)). Command names must be unique. Plugins are read only from this file, never from
 a repository.
 
 ```yaml
