@@ -173,7 +173,7 @@ func (view *View) PullRequestIdentity() (userinterface.PullRequestIdentity, bool
 }
 
 // Reload implements userinterface.PluginHost: the same reload as refresh.
-func (view *View) Reload() tea.Cmd { return view.load() }
+func (view *View) Reload() tea.Cmd { return view.refresh() }
 
 // KeepsCommandLine implements userinterface.CommandLineKeeper: ":" opens the
 // command line during a line selection, so a `lines` plugin can use it. With

@@ -94,7 +94,7 @@ func (view *View) handleKey(message keys.Message) tea.Cmd {
 	case key.Matches(message, view.globalKeys.Open):
 		return view.openBrowser()
 	case key.Matches(message, view.globalKeys.Refresh):
-		return view.load()
+		return view.refresh()
 	case view.selection() > 0 && view.diffNavigation(message):
 		// Reserved globally: hunk and thread keys work from either pane.
 		return view.filePane.Update(message)
