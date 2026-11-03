@@ -182,7 +182,7 @@ func (view *View) applyResolution(identifier string, resolution github.ThreadRes
 	// A fresh slice, so the one handed to the file pane earlier is never written to.
 	view.threads = slices.Clone(view.threads)
 	view.threads[index].IsResolved, view.threads[index].ResolvedBy = resolution.IsResolved, resolution.ResolvedBy
-	view.showThreads()
+	view.filePane.SetThreads(view.threads)
 	view.overview.invalidate()
 	view.layout()
 	return true

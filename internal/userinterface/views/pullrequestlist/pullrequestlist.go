@@ -54,8 +54,6 @@ type Options struct {
 	// PullRequest, if not zero, is opened on start, over the list, as if it
 	// had been chosen from it.
 	PullRequest int
-	// Questions, if set, lets the workspaces it opens ask about lines (:ask).
-	Questions *workspace.Questions
 	// Clipboard is the system clipboard tool the workspaces copy with besides
 	// OSC 52; nil means OSC 52 only.
 	Clipboard clipboard.Copier
@@ -95,7 +93,6 @@ type View struct {
 	// hunkMarks keeps the hunks marked reviewed in every workspace opened
 	// from here, so they survive closing and reopening a pull request.
 	hunkMarks *workspace.HunkMarks
-	questions *workspace.Questions
 	// openFirst is the pull request to open on start, or zero.
 	openFirst int
 	// analyses keeps the review analyses loaded in every workspace opened
@@ -172,7 +169,6 @@ func New(client github.Client, repository github.Repository, configured []config
 		open:      options.Open,
 		timeouts:  options.Timeouts,
 		clipboard: options.Clipboard,
-		questions: options.Questions,
 		openFirst: options.PullRequest,
 		analyses:  workspace.NewAnalyses(),
 		hunkMarks: workspace.NewHunkMarks(),
@@ -454,7 +450,6 @@ func (view *View) openNumber(number int) tea.Cmd {
 		workspace.WithHunkMarks(view.hunkMarks),
 		workspace.WithWrap(view.options.Wrap()),
 		workspace.WithTimeouts(view.timeouts),
-		workspace.WithQuestions(view.questions),
 		workspace.WithAnalyses(view.analyses),
 		workspace.WithClipboard(view.clipboard),
 	))

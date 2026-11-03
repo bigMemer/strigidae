@@ -12,7 +12,6 @@ import (
 	"github.com/MikePors/strigidae/internal/userinterface/theme"
 	"github.com/MikePors/strigidae/internal/userinterface/theme/scheme"
 	"github.com/MikePors/strigidae/internal/userinterface/theme/terminalpalette"
-	"github.com/MikePors/strigidae/internal/userinterface/views/workspace"
 )
 
 // application is everything the TUI needs, resolved before it starts.
@@ -40,11 +39,6 @@ type application struct {
 	// config is the loaded config file: the dashboard's tabs and sections, and
 	// the yes/no options it sets.
 	config config.Config
-	// beefis is set by --beefis: strig talks to beefis so :ask can work.
-	beefis bool
-	// questions records what :ask asked through beefis; set when the
-	// terminal interface starts with beefis on.
-	questions *workspace.Questions
 }
 
 // newApplication resolves the repository to show and a client for its host.

@@ -119,7 +119,6 @@ type View struct {
 
 	wrap             bool       // the diff pane wraps long lines
 	hunkMarks        *HunkMarks // hunks marked reviewed; shared with other workspaces by WithHunkMarks
-	questions        *Questions // questions asked with :ask; nil when asking is off
 	analyses         *Analyses  // review analyses loaded; shared with other workspaces by WithAnalyses
 	readFile         func(path string) ([]byte, error)
 	lens             *lensPane        // the lens shown in place of the Files list; nil when none is open
@@ -293,11 +292,6 @@ func (view *View) Update(message tea.Msg) (userinterface.View, tea.Cmd) {
 			return view, nil
 		}
 		return view, view.analysisRead(message)
-	case answerMessage:
-		return view, view.answered(message)
-	case askSentMessage:
-		view.askFailed(message)
-		return view, nil
 	case threadsLoadedMessage:
 		if !view.mine(message.owner, message.repository, message.number, message.sequence) || message.generation != view.threadGeneration {
 			return view, nil

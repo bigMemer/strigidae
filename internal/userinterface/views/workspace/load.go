@@ -204,7 +204,7 @@ func (view *View) threadsLoaded(message threadsLoadedMessage) tea.Cmd {
 	view.threads, view.threadLoaded = sortThreads(message.threads), true
 	view.fades.endHolds(threadFadeKeyPrefix)
 	view.endUnresolvedFades()
-	view.showThreads()
+	view.filePane.SetThreads(view.threads)
 	view.overview.invalidate()
 	view.layout()
 	return nil

@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/MikePors/strigidae/internal/beefis"
 	"github.com/MikePors/strigidae/internal/config"
 	"github.com/MikePors/strigidae/internal/github"
 	"github.com/MikePors/strigidae/internal/github/network"
@@ -73,7 +72,6 @@ func execute(arguments []string, stdout, stderr io.Writer, dependencies dependen
 	showConfigPath := flags.Bool("config-path", false, "print the config file path and exit")
 	listThemes := flags.Bool("list-themes", false, "print the bundled theme names and exit")
 	configFlag := flags.String("config", "", "config file `path` (default: $XDG_CONFIG_HOME/strig/config.yml)")
-	beefisFlag := flags.Bool("beefis", false, "be a beefis unit: :ask sends questions about diff lines through beefis and shows the answers (run inside a beefis pane)")
 	repositoryFlag := flags.String("R", "", "repository to show as `owner/repo` (default: the current checkout's upstream or origin remote)")
 	if err := flags.Parse(arguments); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -109,9 +107,6 @@ func execute(arguments []string, stdout, stderr io.Writer, dependencies dependen
 	if configErr != nil {
 		return configErr
 	}
-	if *beefisFlag && !beefis.InPane(dependencies.getEnvironment) {
-		return &usageError{"--beefis: not inside a beefis pane ($" + beefis.SessionVariable + " is not set)"}
-	}
 	configuration, err := config.Load(configPath, *configFlag != "")
 	if err != nil {
 		return err
@@ -126,7 +121,6 @@ func execute(arguments []string, stdout, stderr io.Writer, dependencies dependen
 	}
 	application.scheme = chosen
 	application.terminalTheme = terminalTheme
-	application.beefis = *beefisFlag
 	if pullRequest > 0 && application.dashboard {
 		return &usageError{fmt.Sprintf("pull request %d: no repository here (run strig in a checkout, or pass -R owner/repo)", pullRequest)}
 	}

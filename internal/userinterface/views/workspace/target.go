@@ -82,9 +82,6 @@ func (view *View) resolveTarget(request request) (resolvedTarget, tea.Cmd) {
 		case 0:
 			return resolvedTarget{}, userinterface.Info("no comment thread here")
 		case 1:
-			if isLocalThread(context.Threads[0]) {
-				return resolvedTarget{}, localNotice(request.words)
-			}
 			return resolvedTarget{thread: context.Threads[0]}, nil
 		}
 		return resolvedTarget{}, userinterface.Info("several threads on this line: move onto one to " + request.words)
@@ -95,8 +92,6 @@ func (view *View) resolveTarget(request request) (resolvedTarget, tea.Cmd) {
 		comment = reviewCommentTarget(context.Comment, context.CommentThread)
 	}
 	switch {
-	case context.OnComment && isLocalThread(context.CommentThread):
-		return resolvedTarget{}, localNotice(request.words)
 	case !context.OnComment:
 		if rule != nil {
 			return resolvedTarget{}, userinterface.Info(rule.notMine)
@@ -123,9 +118,4 @@ func (view *View) diffHidden(words string) tea.Cmd {
 		return userinterface.Info("focus the diff to " + words)
 	}
 	return nil
-}
-
-// localNotice says why an action cannot work on a question's thread.
-func localNotice(words string) tea.Cmd {
-	return userinterface.Info("this answer is local to strig, not on GitHub: nothing to " + words)
 }

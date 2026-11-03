@@ -10,7 +10,7 @@ import (
 // writes declares its kind and asks the guard before it starts, and again at
 // each point where it is re-admitted (after a yes, or after a re-read).
 // Actions that write nothing to GitHub (`m`, folds, navigation,
-// `:copy-filename`, `:copy-url`, `:checks`, `:ask`) have no kind and no guard.
+// `:copy-filename`, `:copy-url`, `:checks`) have no kind and no guard.
 type writeKind int
 
 const (
