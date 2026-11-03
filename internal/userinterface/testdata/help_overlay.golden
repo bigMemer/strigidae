@@ -21,8 +21,8 @@ R        refresh
 esc      cancel / clear                                             
 ?        toggle help                                                
 :        command line (:q close, :qa quit)                          
+tab      complete a word, shift+tab back                            
 1-9      count: 11j, 3], 42G                                        
-
 
 
 

@@ -138,6 +138,9 @@ func (view *View) toggleReaction(target reactionTarget, content github.ReactionC
 // the comment update.
 func (view *View) reactionToggled(message reactionToggledMessage) tea.Cmd {
 	view.writeDone()
+	if userinterface.IsWriteTimeout(message.err) {
+		return view.reloadThreads() // the error is already shown
+	}
 	if message.err != nil {
 		return nil // the error is already shown
 	}
@@ -166,7 +169,7 @@ func (view *View) applyReaction(message reactionToggledMessage) {
 		reviewComment := &threads[i].Comments[index]
 		reviewComment.Reactions = github.WithViewerReaction(reviewComment.Reactions, message.content, !message.removed)
 		view.threads = threads
-		view.filePane.SetThreads(view.threads)
+		view.setPaneThreads()
 		view.overview.invalidate()
 		view.layout()
 		return

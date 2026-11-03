@@ -78,6 +78,8 @@ type commandLine struct {
 	// prompt is the prefix of the view prompt the line is serving (see
 	// prompt.go), or empty when it takes a ":" command.
 	prompt string
+	// completion is the open match list of Tab (see completion.go), or nil.
+	completion *completion
 }
 
 var _ KeyCapturer = (*commandLine)(nil)
@@ -111,12 +113,14 @@ func (commandLine *commandLine) CapturesKeys() bool { return commandLine.active 
 
 func (commandLine *commandLine) open() tea.Cmd {
 	commandLine.input.Reset()
+	commandLine.completion = nil
 	commandLine.active = true
 	return commandLine.input.Focus()
 }
 
 func (commandLine *commandLine) close() {
 	commandLine.active = false
+	commandLine.completion = nil
 	commandLine.prompt, commandLine.input.Prompt = "", ":"
 	commandLine.input.Blur()
 	commandLine.input.Reset()
@@ -126,6 +130,9 @@ func (commandLine *commandLine) close() {
 // backspace on an empty line cancels, as in vim. When the line is submitted
 // the text is returned with ok true.
 func (commandLine *commandLine) handleKey(message tea.KeyPressMsg) (line string, ok bool, command tea.Cmd) {
+	// Any key but Tab and shift+tab (the root takes those) accepts the match
+	// shown and closes the list.
+	commandLine.completion = nil
 	switch message.String() {
 	case "esc":
 		commandLine.close()

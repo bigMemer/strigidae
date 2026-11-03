@@ -1,0 +1,19 @@
+{"data": {"createPullRequest": {"pullRequest": {
+  "id": "PR_kwDOExample99",
+  "number": 99,
+  "title": "feat: new thing",
+  "url": "https://github.com/MikePors/strigidae/pull/99",
+  "isDraft": true,
+  "state": "OPEN",
+  "createdAt": "2026-10-30T09:00:00Z",
+  "updatedAt": "2026-10-30T09:00:00Z",
+  "reviewDecision": null,
+  "baseRefName": "main",
+  "headRefName": "feat/new-thing",
+  "headRefOid": "0000000000000000000000000000000000002222",
+  "isCrossRepository": false,
+  "statusCheckRollup": null,
+  "author": {"login": "MikePors"},
+  "commentCount": {"totalCount": 0},
+  "repository": {"nameWithOwner": "MikePors/strigidae"}
+}}}}

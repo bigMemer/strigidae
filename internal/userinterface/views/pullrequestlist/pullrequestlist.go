@@ -57,6 +57,12 @@ type Options struct {
 	// Clipboard is the system clipboard tool the workspaces copy with besides
 	// OSC 52; nil means OSC 52 only.
 	Clipboard clipboard.Copier
+	// CurrentBranch is the checkout's branch, preselected as the head of a new
+	// pull request; empty when there is none.
+	CurrentBranch string
+	// Edit opens $EDITOR for the text of a new pull request; nil selects the
+	// real editor.
+	Edit workspace.EditFunction
 }
 
 // tab is one list of the repository's open pull requests with its own rows,
@@ -68,7 +74,13 @@ type tab struct {
 	author    string // who the tab is about, empty for the first tab
 	requested bool   // the rows were asked for at least once
 
+	// loaded holds the rows as the API returned them; pullRequests holds the
+	// same rows in the order drawn (stacks under their parents, see
+	// stackOrder), with the indent depth of each in depths. Everything the
+	// user sees or selects goes through pullRequests.
+	loaded       []github.PullRequest
 	pullRequests []github.PullRequest
+	depths       []int
 	next         string // cursor of the next page, empty when all are loaded
 	sequence     int    // latest request; older results are ignored
 	loading      bool   // a first-page (re)load is in flight
@@ -100,6 +112,11 @@ type View struct {
 	analyses *workspace.Analyses
 	bindings bindings
 
+	currentBranch  string
+	edit           workspace.EditFunction
+	createSequence int         // numbers every :create flow and is never reused
+	creating       *createFlow // the :create or :create-draft in progress, if any
+
 	tabs          []tab
 	active        int
 	options       options.Values // the `:set` options, sent by the root
@@ -116,6 +133,8 @@ func (listBindings *bindings) actions() []keys.Action {
 	return []keys.Action{
 		{Name: "next-tab", Binding: &listBindings.nextTab},
 		{Name: "previous-tab", Binding: &listBindings.previousTab},
+		{Name: commandCreate, Command: commandCreate},
+		{Name: commandCreateDraft, Command: commandCreateDraft},
 	}
 }
 
@@ -131,9 +150,11 @@ func ActionNames() []string {
 }
 
 var (
-	_ userinterface.View     = (*View)(nil)
-	_ userinterface.Loader   = (*View)(nil)
-	_ userinterface.Prompter = (*View)(nil)
+	_ userinterface.View        = (*View)(nil)
+	_ userinterface.Loader      = (*View)(nil)
+	_ userinterface.Prompter    = (*View)(nil)
+	_ userinterface.Commander   = (*View)(nil)
+	_ userinterface.KeyCapturer = (*View)(nil)
 )
 
 // New returns the PR list for repository. It starts loading when pushed (Init).
@@ -145,6 +166,9 @@ func New(client github.Client, repository github.Repository, configured []config
 	}
 	if options.Open == nil {
 		options.Open = openInBrowser
+	}
+	if options.Edit == nil {
+		options.Edit = workspace.ExecEditor
 	}
 	tabs := []tab{{name: "All"}}
 	for _, current := range configured {
@@ -165,14 +189,16 @@ func New(client github.Client, repository github.Repository, configured []config
 			nextTab:     key.NewBinding(key.WithKeys("g t"), key.WithHelp("gt", "next tab")),
 			previousTab: key.NewBinding(key.WithKeys("g T"), key.WithHelp("gT", "previous tab")),
 		},
-		now:       options.Now,
-		open:      options.Open,
-		timeouts:  options.Timeouts,
-		clipboard: options.Clipboard,
-		openFirst: options.PullRequest,
-		analyses:  workspace.NewAnalyses(),
-		hunkMarks: workspace.NewHunkMarks(),
-		tabs:      tabs,
+		now:           options.Now,
+		open:          options.Open,
+		timeouts:      options.Timeouts,
+		clipboard:     options.Clipboard,
+		currentBranch: options.CurrentBranch,
+		edit:          options.Edit,
+		openFirst:     options.PullRequest,
+		analyses:      workspace.NewAnalyses(),
+		hunkMarks:     workspace.NewHunkMarks(),
+		tabs:          tabs,
 	}
 }
 
@@ -196,7 +222,7 @@ func openInBrowser(url string) error {
 // Loading implements userinterface.Loader.
 func (view *View) Loading() bool {
 	current := view.current()
-	return current.loading || current.loadingMore
+	return current.loading || current.loadingMore || (view.creating != nil && view.creating.loading)
 }
 
 // Title implements userinterface.View.
@@ -222,7 +248,7 @@ func (view *View) FullHelp() [][]key.Binding {
 // Init implements userinterface.View.
 func (view *View) Init() tea.Cmd {
 	if view.openFirst > 0 {
-		return tea.Batch(view.show(view.active), view.openNumber(view.openFirst))
+		return tea.Batch(view.show(view.active), view.openPullRequest(view.openFirst))
 	}
 	return view.show(view.active)
 }
@@ -285,6 +311,16 @@ func (view *View) Update(message tea.Msg) (userinterface.View, tea.Cmd) {
 		view.theme = message.Theme
 	case pullRequestsLoadedMessage:
 		return view, view.loaded(message)
+	case branchesLoadedMessage:
+		return view, view.branchesLoaded(message)
+	case createTextMessage:
+		return view, view.createEdited(message)
+	case pullRequestCreatedMessage:
+		return view, view.pullRequestCreated(message)
+	case tea.KeyPressMsg:
+		if view.CapturesKeys() {
+			return view, view.createKey(message)
+		}
 	case userinterface.PromptResultMessage:
 		return view, view.current().search.Prompt(message, view.searchList())
 	case keys.Message:
@@ -319,9 +355,9 @@ func (view *View) loaded(message pullRequestsLoadedMessage) tea.Cmd {
 	current.err = nil
 	current.next = message.page.Next
 	if message.more {
-		current.pullRequests = append(current.pullRequests, message.page.Items...)
+		current.setLoaded(append(current.loaded, message.page.Items...))
 	} else {
-		current.replace(message.page.Items)
+		current.setLoaded(message.page.Items)
 	}
 	current.window.SetRows(len(current.pullRequests))
 	current.search.Refresh(view.searchListOf(current))
@@ -331,17 +367,18 @@ func (view *View) loaded(message pullRequestsLoadedMessage) tea.Cmd {
 	return view.maybeLoadMore()
 }
 
-// replace swaps in a fresh first page, keeping the selection on the same pull
-// request when it is still listed.
-func (current *tab) replace(items []github.PullRequest) {
+// setLoaded swaps in the loaded rows and arranges them for drawing, keeping
+// the selection on the same pull request when it is still listed.
+func (current *tab) setLoaded(items []github.PullRequest) {
 	var selected int
 	if pullRequest, ok := current.selected(); ok {
 		selected = pullRequest.Number
 	}
-	current.pullRequests = items
+	current.loaded = items
+	current.pullRequests, current.depths = stackOrder(items)
 	// If the selected PR is gone, stay on the same row (the window clamps it).
-	current.window.SetRows(len(items))
-	for i, pullRequest := range items {
+	current.window.SetRows(len(current.pullRequests))
+	for i, pullRequest := range current.pullRequests {
 		if selected != 0 && pullRequest.Number == selected {
 			current.window.Restore(i, current.window.Top(), 0)
 			break
@@ -438,11 +475,11 @@ func (view *View) openSelected() tea.Cmd {
 	if !ok {
 		return nil
 	}
-	return view.openNumber(pullRequest.Number)
+	return view.openPullRequest(pullRequest.Number)
 }
 
-// openNumber opens pull request number's workspace over the list.
-func (view *View) openNumber(number int) tea.Cmd {
+// openPullRequest pushes the workspace for one pull request.
+func (view *View) openPullRequest(number int) tea.Cmd {
 	return userinterface.Push(workspace.New(view.client, view.repository, number,
 		workspace.WithTheme(view.theme),
 		workspace.WithClock(view.now),

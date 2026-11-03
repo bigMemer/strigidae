@@ -82,6 +82,9 @@ func (view *View) resolveTarget(request request) (resolvedTarget, tea.Cmd) {
 		case 0:
 			return resolvedTarget{}, userinterface.Info("no comment thread here")
 		case 1:
+			if context.Threads[0].Local.IsLocal() {
+				return resolvedTarget{}, userinterface.Info(localRefusal(request.words))
+			}
 			return resolvedTarget{thread: context.Threads[0]}, nil
 		}
 		return resolvedTarget{}, userinterface.Info("several threads on this line: move onto one to " + request.words)
@@ -90,6 +93,9 @@ func (view *View) resolveTarget(request request) (resolvedTarget, tea.Cmd) {
 	var comment commentTarget
 	if context.OnComment {
 		comment = reviewCommentTarget(context.Comment, context.CommentThread)
+	}
+	if context.OnComment && context.CommentThread.Local.IsLocal() {
+		return resolvedTarget{}, userinterface.Info(localRefusal(request.words))
 	}
 	switch {
 	case !context.OnComment:

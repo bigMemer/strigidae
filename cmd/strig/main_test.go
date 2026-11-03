@@ -49,6 +49,9 @@ func newHarness(remotes map[string]string, checkout bool, clientErr error) *harn
 				}
 				return "/work", nil
 			}
+			if arguments[0] == "branch" {
+				return "feat/current", nil
+			}
 			if address, ok := remotes[arguments[2]]; ok {
 				return address, nil
 			}

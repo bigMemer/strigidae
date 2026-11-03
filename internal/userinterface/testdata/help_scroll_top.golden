@@ -1,0 +1,14 @@
+Help  ? / esc to close  1–11 of 23                              
+                                                                
+Global                                        v                 
+j        down                                 F0       action 0 
+k        up                                   F1       action 1 
+gg       top                                  F2       action 2 
+G        bottom                               F3       action 3 
+ctrl+d   half page down                       F4       action 4 
+ctrl+u   half page up                         F5       action 5 
+ctrl+f   page down                            F6       action 6 
+ctrl+b   page up                              F7       action 7 
+                                              F8       action 8 
+zt       cursor line to the top               F9       action 9 
+ v  ? help  zq test sequence                                          

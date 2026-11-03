@@ -141,8 +141,9 @@ func (view *View) viewedDone(message viewedMessage) tea.Cmd {
 		toggle.want = toggle.confirmed
 		view.setViewed(message.path, toggle.want)
 		if message.sent == github.FileViewed {
-			// strig did not mark it after all, so autoviewed must never unmark it
-			// (say, after the user views it on GitHub instead).
+			// The mark failed, or timed out and may or may not have landed. Either
+			// way autoviewed lets go of the file, so it never unmarks a mark strig
+			// is not sure it made (say, one the user made on GitHub instead).
 			delete(view.hunkMarks.autoViewed, fileKey{view.repository, view.number, message.path})
 		}
 		if toggle.want != github.FileViewed {
@@ -154,6 +155,12 @@ func (view *View) viewedDone(message viewedMessage) tea.Cmd {
 		return view.sendViewed(message.path, toggle.want)
 	}
 	toggle.inflight, toggle.settledAt = false, view.sequence
+	if userinterface.IsWriteTimeout(message.err) {
+		// GitHub may have applied the mark: forget what strig believed, so the
+		// reload decides what shows.
+		delete(view.viewedState, message.path)
+		return view.reloadPullRequest()
+	}
 	return nil
 }
 

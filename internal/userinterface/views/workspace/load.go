@@ -204,7 +204,7 @@ func (view *View) threadsLoaded(message threadsLoadedMessage) tea.Cmd {
 	view.threads, view.threadLoaded = sortThreads(message.threads), true
 	view.fades.endHolds(threadFadeKeyPrefix)
 	view.endUnresolvedFades()
-	view.filePane.SetThreads(view.threads)
+	view.setPaneThreads()
 	view.overview.invalidate()
 	view.layout()
 	return nil
@@ -221,6 +221,7 @@ func (view *View) diffLoaded(message diffLoadedMessage) tea.Cmd {
 		view.diffHead = message.head
 	}
 	view.filePane.SetDiff(view.diff)
+	view.setPaneThreads() // local threads are outdated against the diff's head
 	if message.parseErr != nil {
 		// Files that parsed still show; the problem is reported once here.
 		return userinterface.Error(terminaltext.SafeError(fmt.Errorf("%s#%d: %w", view.repository, view.number, message.parseErr)))

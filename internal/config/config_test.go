@@ -187,7 +187,7 @@ func TestParseErrors(test *testing.T) {
 		{"wrap as text", "wrap: 'true'\n", "c.yml:1: wrap must be true or false"},
 		{"wrap as yes", "wrap: yes\n", "c.yml:1: wrap must be true or false"},
 		{"empty wrap", "wrap:\n", "c.yml:1: wrap must be true or false"},
-		{"unknown top-level key", "tabz: []\n", `c.yml:1: unknown key "tabz" in the config file (valid keys: autoviewed, hideresolved, hidereviewed, hideviewed, hlsearch, relativenumber, skipresolved, tabs, theme, timeouts, wrap, wrapscan)`},
+		{"unknown top-level key", "tabz: []\n", `c.yml:1: unknown key "tabz" in the config file (valid keys: autoviewed, hideresolved, hidereviewed, hideviewed, hlsearch, plugins, relativenumber, skipresolved, tabs, theme, timeouts, wrap, wrapscan)`},
 		{"zero request", "timeouts:\n  request: 0s\n", "c.yml:2: request timeout must be a positive duration such as 10s or 1m30s"},
 		{"bare zero request", "timeouts:\n  request: 0\n", "c.yml:2: request timeout must be a positive duration such as 10s or 1m30s"},
 		{"negative load", "timeouts:\n  load: -5s\n", "c.yml:2: load timeout must be a positive duration such as 10s or 1m30s"},

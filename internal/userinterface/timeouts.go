@@ -50,6 +50,13 @@ func (writeTimeoutError) Error() string {
 
 func (timeoutError writeTimeoutError) Unwrap() error { return timeoutError.err }
 
+// IsWriteTimeout reports whether err came out of WriteError as a timeout: a
+// write that GitHub may have applied, so a view reloads what it affects.
+func IsWriteTimeout(err error) bool {
+	var timeoutError writeTimeoutError
+	return errors.As(err, &timeoutError)
+}
+
 // WriteError marks err, from a write to GitHub, as possibly applied when it is
 // a timeout, and returns any other error as it is.
 func WriteError(err error) error {

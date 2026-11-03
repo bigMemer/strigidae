@@ -91,4 +91,12 @@ type Client interface {
 	// RemoveReaction removes the viewer's reaction from the comment with the
 	// given node ID. Removing one the viewer does not have changes nothing.
 	RemoveReaction(ctx context.Context, subjectIdentifier string, content ReactionContent) error
+	// ListBranches lists the repository's branches in name order. The default
+	// branch is marked on the item that is it.
+	ListBranches(ctx context.Context, repository Repository, pageRequest PageRequest) (Page[Branch], error)
+	// CreatePullRequest opens a pull request from in.Head into in.Base and
+	// returns it. GitHub's refusal (no commits between the branches, a pull
+	// request already open for the head, an unknown branch) comes back as an
+	// error.
+	CreatePullRequest(ctx context.Context, in CreatePullRequestInput) (PullRequest, error)
 }

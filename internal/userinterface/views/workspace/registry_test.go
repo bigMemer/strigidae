@@ -147,6 +147,25 @@ func TestCommandsAreHandledAndOthersAreNot(test *testing.T) {
 	}
 }
 
+// CommandNames is what Tab offers: every command the view handles, plugins
+// included, and only those.
+func TestCommandNamesAreTheCommandsTheViewHandles(test *testing.T) {
+	view := newHarness(test, 100, 24).view
+	if diff := cmp.Diff(Commands(), view.CommandNames()); diff != "" {
+		test.Errorf("without plugins (-want +got):\n%s", diff)
+	}
+	view.pluginCommands = pluginCommands
+	names := view.CommandNames()
+	if diff := cmp.Diff(append(Commands(), "ask", "summarize"), names); diff != "" {
+		test.Errorf("with plugins (-want +got):\n%s", diff)
+	}
+	for _, name := range names {
+		if _, handled := view.Command(name, ""); !handled {
+			test.Errorf(":%s is offered but not handled", name)
+		}
+	}
+}
+
 // ] and [ belong to the Overview's sections; in a file they fall through to
 // the diff pane's hunks.
 func TestEntryThatDoesNotApplyFallsThrough(test *testing.T) {

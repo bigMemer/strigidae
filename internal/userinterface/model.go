@@ -1,9 +1,11 @@
 package userinterface
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"charm.land/bubbles/v2/key"
@@ -45,6 +47,14 @@ type Options struct {
 	// shell tell a command the top view lacks ("not available here") from a
 	// word that is no command at all.
 	ViewCommands []string
+	// PluginRunner runs the configured plugins; nil when there are none.
+	PluginRunner PluginRunner
+	// PluginCommands are the configured plugins' commands. Views are told
+	// through PluginsMessage; the names must also be in ViewCommands.
+	PluginCommands []PluginCommand
+	// PluginQuitWait is how long quitting waits for plugin runs it has
+	// cancelled; DefaultPluginQuitWait by default.
+	PluginQuitWait time.Duration
 }
 
 // Internal timer messages. The id/gen fields discard timers that were
@@ -70,11 +80,24 @@ type Model struct {
 	options         options.Values
 	viewCommands    []string
 
+	// Plugin runs belong to the root: closing a view does not cancel one.
+	pluginRunner   PluginRunner
+	pluginCommands []PluginCommand
+	pluginQuitWait time.Duration
+	pluginContext  context.Context // made with the first run; cancelled at quit
+	pluginCancel   context.CancelFunc
+	pluginSequence int
+	pluginRuns     map[int]pluginRun
+	pluginRunning  sync.WaitGroup // runs whose command has not returned; see Close
+	quitting       bool           // quit began and is waiting for plugin runs
+	localThreads   localThreadStore
+
 	width, height      int
 	matcher            keys.Matcher
 	sequenceGeneration int
 
 	showHelp    bool
+	helpOffset  int            // top body line of the help; always within the body
 	confirm     *confirmPrompt // open yes/no question, or nil
 	commandLine commandLine
 	status      struct {
@@ -109,6 +132,12 @@ func New(root View, activeTheme theme.Theme, startup Options) *Model {
 	if startup.StartingOptions != nil {
 		root, _ = root.Update(OptionsMessage{Values: startup.StartingOptions})
 	}
+	if len(startup.PluginCommands) > 0 {
+		root, _ = root.Update(PluginsMessage{Commands: startup.PluginCommands})
+	}
+	if startup.PluginQuitWait <= 0 {
+		startup.PluginQuitWait = DefaultPluginQuitWait
+	}
 	return &Model{
 		stack:           []View{root},
 		theme:           activeTheme,
@@ -121,6 +150,10 @@ func New(root View, activeTheme theme.Theme, startup Options) *Model {
 		themeLoader:     startup.LoadTheme,
 		options:         startup.StartingOptions,
 		viewCommands:    startup.ViewCommands,
+		pluginRunner:    startup.PluginRunner,
+		pluginCommands:  startup.PluginCommands,
+		pluginQuitWait:  startup.PluginQuitWait,
+		pluginRuns:      map[int]pluginRun{},
 		commandLine:     newCommandLine(activeTheme),
 		spin:            spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(activeTheme.Spinner)),
 	}
@@ -152,6 +185,7 @@ func (model *Model) update(message tea.Msg) tea.Cmd {
 	case tea.WindowSizeMsg:
 		model.width, model.height = message.Width, message.Height
 		model.commandLine.input.SetWidth(max(1, message.Width-2)) // room for the prompt and cursor
+		model.clampHelp()
 		return model.broadcast(model.sizeMessage())
 	case tea.BackgroundColorMsg:
 		// The reply picks a built-in variant only. A theme the user chose is
@@ -173,6 +207,12 @@ func (model *Model) update(message tea.Msg) tea.Cmd {
 	case PopMessage:
 		return model.pop()
 	case QuitMessage:
+		return model.quit()
+	case RunPluginMessage:
+		return model.startPlugin(message)
+	case pluginResultMessage:
+		return model.pluginResult(message)
+	case quitWaitedMessage:
 		return tea.Quit
 	case ConfirmMessage:
 		model.resetKeys()
@@ -252,13 +292,21 @@ func (model *Model) push(view View) tea.Cmd {
 		view, _ = view.Update(OptionsMessage{Values: model.options})
 		model.stack[len(model.stack)-1] = view
 	}
+	if len(model.pluginCommands) > 0 {
+		view, _ = view.Update(PluginsMessage{Commands: model.pluginCommands})
+		model.stack[len(model.stack)-1] = view
+	}
+	if threads := model.localThreads.snapshot(); len(threads) > 0 {
+		view, _ = view.Update(LocalThreadsMessage{Threads: threads})
+		model.stack[len(model.stack)-1] = view
+	}
 	return tea.Batch(view.Init(), model.forward(model.sizeMessage()))
 }
 
 func (model *Model) pop() tea.Cmd {
 	model.resetKeys()
 	if len(model.stack) == 1 {
-		return tea.Quit
+		return model.quit()
 	}
 	model.stack = model.stack[:len(model.stack)-1]
 	model.log.Debug("pop view", "depth", len(model.stack))
@@ -288,7 +336,7 @@ func (model *Model) setStatus(text string, kind statusKind) tea.Cmd {
 // push, pop and view state changes are all covered.
 func (model *Model) syncSpinner() tea.Cmd {
 	loader, ok := model.top().(Loader)
-	want := ok && loader.Loading()
+	want := ok && loader.Loading() || model.pluginActive()
 	switch {
 	case want && !model.spinning:
 		model.spinning = true
@@ -318,6 +366,14 @@ func (model *Model) handleKey(message tea.KeyPressMsg) tea.Cmd {
 		return model.promptKey(message)
 	}
 	if model.commandLine.active {
+		switch pressed {
+		case "tab":
+			model.complete(1)
+			return nil
+		case "shift+tab":
+			model.complete(-1)
+			return nil
+		}
 		line, ok, command := model.commandLine.handleKey(message)
 		if ok {
 			return parseCommand(line, model.top(), model.viewCommands)
@@ -325,12 +381,13 @@ func (model *Model) handleKey(message tea.KeyPressMsg) tea.Cmd {
 		return command
 	}
 	if model.showHelp {
-		if key.Matches(message, model.keys.Help, model.keys.Cancel) {
-			model.showHelp = false
-		}
-		return nil
+		return model.handleHelpKey(message)
 	}
 	if capturer, ok := model.top().(KeyCapturer); ok && capturer.CapturesKeys() {
+		if keeper, ok := model.top().(CommandLineKeeper); ok && keeper.KeepsCommandLine() && key.Matches(message, model.keys.Command) {
+			model.resetKeys()
+			return model.commandLine.open()
+		}
 		model.resetKeys()
 		return model.forward(message)
 	}
@@ -353,6 +410,11 @@ func (model *Model) expireSequence(generation int) tea.Cmd {
 		return nil
 	}
 	model.sequenceGeneration++
+	if model.showHelp {
+		// The help owns the keys: nothing may reach the view from here.
+		model.matcher.Reset()
+		return nil
+	}
 	if result := model.matcher.Expire(model.bindings()); result.Kind == keys.Matched {
 		return model.dispatch(result.Sequence, result.Count)
 	}
@@ -366,6 +428,7 @@ func (model *Model) dispatch(sequence string, count int) tea.Cmd {
 	switch {
 	case key.Matches(keyMessage, model.keys.Help):
 		model.showHelp = true
+		model.helpOffset = 0
 		return nil
 	case key.Matches(keyMessage, model.keys.Command):
 		return model.commandLine.open()
@@ -373,11 +436,81 @@ func (model *Model) dispatch(sequence string, count int) tea.Cmd {
 	return model.withRequestedPrompt(model.forward(keyMessage))
 }
 
+// helpLines is the help's scrolling body at the current size and bindings.
+func (model *Model) helpLines() []string {
+	width, _ := model.contentSize()
+	return helpBody(model.theme, model.top().Title(), model.keys.FullHelp(), model.top().FullHelp(), width)
+}
+
+// clampHelp pulls the offset back inside the body, which changes length with
+// the width and with the view's enabled bindings.
+func (model *Model) clampHelp() {
+	if !model.showHelp {
+		return
+	}
+	_, height := model.contentSize()
+	model.helpOffset = clampHelpOffset(model.helpOffset, len(model.helpLines()), helpBodyRows(height))
+}
+
+// handleHelpKey runs a key press while the help is open. Only the global
+// bindings are matched, and nothing reaches the view.
+func (model *Model) handleHelpKey(message tea.KeyPressMsg) tea.Cmd {
+	if key.Matches(message, model.keys.Help, model.keys.Cancel) {
+		model.resetKeys()
+		return nil
+	}
+	result := model.matcher.Feed(message.String(), model.keys.Bindings())
+	model.sequenceGeneration++
+	switch result.Kind {
+	case keys.Pending:
+		generation := model.sequenceGeneration
+		return model.tick(model.sequenceWait, func(time.Time) tea.Msg { return sequenceTimeoutMessage{generation: generation} })
+	case keys.Matched:
+		model.scrollHelp(result.Sequence, result.Count)
+	}
+	return nil
+}
+
+// scrollHelp moves the help by a resolved global key; other keys do nothing.
+func (model *Model) scrollHelp(sequence string, count int) {
+	keyMessage := keys.Message{Sequence: sequence, Count: count}
+	_, height := model.contentSize()
+	rows := helpBodyRows(height)
+	model.clampHelp() // the body may have changed since the last key
+	offset := model.helpOffset
+	repeat := keyMessage.Repeat()
+	switch {
+	case key.Matches(keyMessage, model.keys.Down):
+		offset += repeat
+	case key.Matches(keyMessage, model.keys.Up):
+		offset -= repeat
+	case key.Matches(keyMessage, model.keys.Top):
+		offset = 0
+	case key.Matches(keyMessage, model.keys.Bottom):
+		offset = len(model.helpLines())
+		if count > 0 {
+			offset = count - 1
+		}
+	case key.Matches(keyMessage, model.keys.HalfDown):
+		offset += repeat * max(1, rows/2)
+	case key.Matches(keyMessage, model.keys.HalfUp):
+		offset -= repeat * max(1, rows/2)
+	case key.Matches(keyMessage, model.keys.PageDown):
+		offset += repeat * rows
+	case key.Matches(keyMessage, model.keys.PageUp):
+		offset -= repeat * rows
+	default:
+		return
+	}
+	model.helpOffset = offset
+	model.clampHelp()
+}
+
 // View implements tea.Model.
 func (model *Model) View() tea.View {
 	var view tea.View
 	if model.width > 0 && model.height > 0 {
-		view = tea.NewView(model.content() + "\n" + model.bottomRow())
+		view = tea.NewView(model.overlayCompletion(model.content()) + "\n" + model.bottomRow())
 	}
 	view.AltScreen = true
 	if model.theme.Chosen && !model.theme.FromTerminal {
@@ -393,7 +526,7 @@ func (model *Model) content() string {
 	width, height := model.contentSize()
 	var text string
 	if model.showHelp {
-		text = renderHelp(model.theme, model.top().Title(), model.keys.FullHelp(), model.top().FullHelp(), width)
+		text = renderHelp(model.theme, model.helpLines(), height, model.helpOffset)
 	} else {
 		text = model.top().Render(width, height)
 	}

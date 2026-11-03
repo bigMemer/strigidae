@@ -1,0 +1,14 @@
+Help  ? / esc to close  11–21 of 23                             
+                                                                
+zt       cursor line to the top               F9       action 9 
+zz       cursor line to the middle            F10      action 10
+zb       cursor line to the bottom            F11      action 11
+                                                                
+enter    open / select                                          
+o        open in browser                                        
+R        refresh                                                
+                                                                
+esc      cancel / clear                                         
+?        toggle help                                            
+:        command line (:q close, :qa quit)                      
+ v  ? help  zq test sequence                                          

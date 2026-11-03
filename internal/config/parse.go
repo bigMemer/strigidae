@@ -19,6 +19,7 @@ var topLevel = buildTopLevel()
 
 func buildTopLevel() map[string]func(nodeParser *parser, node *yaml.Node, config *Config) {
 	keyParsers := map[string]func(nodeParser *parser, node *yaml.Node, config *Config){
+		"plugins":  (*parser).plugins,
 		"tabs":     (*parser).tabs,
 		"theme":    (*parser).theme,
 		"timeouts": (*parser).timeouts,

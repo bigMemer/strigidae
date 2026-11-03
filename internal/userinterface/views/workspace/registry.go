@@ -314,7 +314,7 @@ func (view *View) invoke(chosen actionEntry, call invocation) tea.Cmd {
 
 // entryNamed returns the entry with the given action name.
 func (view *View) entryNamed(name string) actionEntry {
-	for _, candidate := range view.bind.entries() {
+	for _, candidate := range view.entries() {
 		if candidate.Name == name {
 			return candidate
 		}
@@ -324,7 +324,7 @@ func (view *View) entryNamed(name string) actionEntry {
 
 // keyEntry returns the entry a key press reaches, if any.
 func (view *View) keyEntry(message keys.Message) (actionEntry, bool) {
-	for _, candidate := range view.bind.entries() {
+	for _, candidate := range view.entries() {
 		if candidate.run == nil || candidate.Binding == nil || !key.Matches(message, *candidate.Binding) {
 			continue
 		}
@@ -340,12 +340,24 @@ func (view *View) commandEntry(name string) (actionEntry, bool) {
 	if name == "" { // most entries have no command
 		return actionEntry{}, false
 	}
-	for _, candidate := range view.bind.entries() {
+	for _, candidate := range view.entries() {
 		if candidate.Command == name {
 			return candidate, true
 		}
 	}
 	return actionEntry{}, false
+}
+
+// CommandNames implements userinterface.CommandLister: the commands this view
+// takes, its plugins' included, from the entries Command looks them up in.
+func (view *View) CommandNames() []string {
+	var names []string
+	for _, candidate := range view.entries() {
+		if candidate.Command != "" {
+			names = append(names, candidate.Command)
+		}
+	}
+	return names
 }
 
 // Commands lists the command names of the workspace, for the shell to tell a

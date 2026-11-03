@@ -39,6 +39,9 @@ type application struct {
 	// config is the loaded config file: the dashboard's tabs and sections, and
 	// the yes/no options it sets.
 	config config.Config
+	// currentBranch is the checkout's branch, empty with -R, on a detached
+	// head or outside a checkout.
+	currentBranch string
 }
 
 // newApplication resolves the repository to show and a client for its host.
@@ -63,7 +66,25 @@ func newApplication(repositoryFlag string, configuration config.Config, dependen
 	if err != nil {
 		return application{}, err
 	}
-	return application{client: client, repository: target.Repository, theme: theme.Default(), dashboard: dashboard, notice: notice, config: configuration}, nil
+	return application{client: client, repository: target.Repository, theme: theme.Default(), dashboard: dashboard, notice: notice, config: configuration, currentBranch: checkoutBranch(repositoryFlag, dashboard, dependencies)}, nil
+}
+
+// checkoutBranch is the branch of the checkout strig was started in, which
+// the pull request list preselects as the head of a new pull request. With -R
+// the checkout need not be the repository shown, so there is none.
+func checkoutBranch(repositoryFlag string, dashboard bool, dependencies dependencies) string {
+	if repositoryFlag != "" || dashboard {
+		return ""
+	}
+	directory, err := dependencies.getWorkingDirectory()
+	if err != nil {
+		return ""
+	}
+	branch, err := gitrepository.CurrentBranch(context.Background(), dependencies.runner, directory)
+	if err != nil {
+		return ""
+	}
+	return branch
 }
 
 // resolveTarget decides which repository to show: -R if given, else the

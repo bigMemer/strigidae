@@ -131,6 +131,11 @@ type View struct {
 	search  search.State   // over the same rows; Overview never matches
 	options options.Values // the `:set` options, sent by the root
 	focus   pane
+	// pluginCommands are the configured plugins' commands, sent by the root.
+	pluginCommands []userinterface.PluginCommand
+	// localThreads are every local thread of the program, sent by the root;
+	// the ones of this pull request are drawn with the GitHub threads.
+	localThreads []userinterface.LocalThread
 	// searchPane is the pane the search being typed belongs to; the prompt's
 	// results go to it.
 	searchPane pane
@@ -161,6 +166,9 @@ var (
 	_ userinterface.KeyCapturer = (*View)(nil)
 	_ userinterface.Commander   = (*View)(nil)
 	_ userinterface.Prompter    = (*View)(nil)
+
+	_ userinterface.PluginHost        = (*View)(nil)
+	_ userinterface.CommandLineKeeper = (*View)(nil)
 )
 
 // New returns the workspace for pull request number in repository.
@@ -177,7 +185,7 @@ func New(client github.Client, repository github.Repository, number int, options
 		globalKeys:     keys.DefaultGlobal(),
 		bind:           defaultBindings(),
 		navigationBind: defaultDiffBindings(),
-		edit:           execEditor,
+		edit:           ExecEditor,
 		drafts:         map[string]string{},
 		viewedState:    map[string]*viewedToggle{},
 		readFile:       os.ReadFile,
@@ -267,6 +275,12 @@ func (view *View) Update(message tea.Msg) (userinterface.View, tea.Cmd) {
 		view.filePane.SetRelativeNumber(message.Values.RelativeNumber())
 		view.filePane.SetHighlightSearch(message.Values.HighlightSearch())
 		view.optionsChanged()
+	case userinterface.PluginsMessage:
+		view.pluginCommands = message.Commands
+	case userinterface.LocalThreadsMessage:
+		view.localThreads = message.Threads
+		view.setPaneThreads()
+		view.layout()
 	case userinterface.ThemeMessage:
 		view.theme = message.Theme
 		view.markdownRenderer = markdown.New(view.theme)

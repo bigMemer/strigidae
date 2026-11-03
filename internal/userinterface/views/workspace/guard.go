@@ -34,6 +34,13 @@ const (
 	writeDiscard
 	// writePullRequest: `:edit-pull-request`. It needs no diff.
 	writePullRequest
+	// usePluginLines and usePluginPullRequest are not writes: the commands of
+	// plugins (see plugins.go) write nothing to GitHub, so nothing blocks them
+	// but missing data. They share the guard so the "not loaded" notices are
+	// the built-ins' own. A `lines` plugin needs the diff; a `pull-request`
+	// one does not.
+	usePluginLines
+	usePluginPullRequest
 )
 
 // guardRule is what one kind of write needs and what blocks it.
@@ -64,6 +71,9 @@ var guardTable = map[writeKind]guardRule{
 	writeMerge:           {needsDiff: true, busy: allBusy},
 	writeDiscard:         {busy: allBusy},
 	writePullRequest:     {busy: allBusy},
+
+	usePluginLines:       {needsDiff: true},
+	usePluginPullRequest: {},
 }
 
 // ruleFor is the rule of a kind. writeNone means "no guard" only to the

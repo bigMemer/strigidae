@@ -120,6 +120,9 @@ func (view *View) Command(name, arguments string) (tea.Cmd, bool) {
 	if !ok {
 		return nil, false
 	}
+	if refusal := view.duringSelection(chosen); refusal != nil {
+		return refusal, true
+	}
 	return view.invoke(chosen, invocation{arguments: arguments}), true
 }
 

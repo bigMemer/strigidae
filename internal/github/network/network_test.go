@@ -174,7 +174,7 @@ func TestListPullRequestsPagination(test *testing.T) {
 				Identifier: "PR_kwDOExample02", HeadSHA: sha(2), Repository: repository, Number: 26, Title: "chore: add issue forms and PR template", Author: "ghost",
 				State: github.PullRequestStateOpen, ReviewDecision: github.ReviewDecisionApproved, Checks: github.ChecksFailing,
 				CreatedAt: mustTime(test, "2026-10-17T12:00:00Z"), UpdatedAt: mustTime(test, "2026-10-18T10:15:00Z"),
-				URL: "https://github.com/MikePors/strigidae/pull/26", HeadBranch: "chore/3-templates", BaseBranch: "main",
+				URL: "https://github.com/MikePors/strigidae/pull/26", HeadBranch: "chore/3-templates", BaseBranch: "main", CrossRepository: true,
 			},
 		},
 	}

@@ -9,3 +9,6 @@
 /.claude/*
 !/.claude/skills/
 # add a !-line here for any other shared Claude Code config (agents, commands, settings)
+
+# the binary built by go build ./cmd/strig in the repository root
+/strig

@@ -17,6 +17,7 @@
           "baseRefName": "main",
           "headRefName": "fix-typo",
           "headRefOid": "0000000000000000000000000000000000001111",
+          "isCrossRepository": false,
           "statusCheckRollup": {"state": "EXPECTED"},
           "author": {"login": "octocat"},
           "commentCount": {"totalCount": 4},

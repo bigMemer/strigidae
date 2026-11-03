@@ -20,7 +20,7 @@ func (view *View) Render(width, height int) string {
 		return clip(view.theme.Muted.Render("no tabs configured"), width, height)
 	}
 	current := &view.tabs[view.active]
-	table := pullrequestrows.New(view.theme, view.now, true)
+	table := pullrequestrows.New(view.theme, view.now, pullrequestrows.Options{Repository: true})
 	layout := table.Layout(current.pullRequests(), width-pullrequestrows.MarkerColumns)
 
 	selectedIndex := current.selectedIndex()

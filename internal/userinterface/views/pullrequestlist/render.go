@@ -32,7 +32,7 @@ func (view *View) Render(width, height int) string {
 	default:
 		out = view.table(width, height)
 	}
-	return fit(view.tabBar(width)+"\n"+out, width, height)
+	return view.overlayPicker(fit(view.tabBar(width)+"\n"+out, width, height), width, height)
 }
 
 // tabBar draws the tab names.
@@ -72,14 +72,14 @@ func (view *View) errorState(width int) string {
 
 func (view *View) table(width, height int) string {
 	current := view.current()
-	table := pullrequestrows.New(view.theme, view.now, false)
+	table := pullrequestrows.New(view.theme, view.now, pullrequestrows.Options{Branches: true})
 	layout := table.Layout(current.pullRequests, width-pullrequestrows.MarkerColumns)
 	lines := make([]string, 0, height)
 	lines = append(lines, table.Header(layout, width))
 
 	end := min(len(current.pullRequests), current.window.Top()+view.listHeight())
 	for i := current.window.Top(); i < end; i++ {
-		lines = append(lines, table.Row(layout, current.pullRequests[i], i == current.window.Cursor(), view.options.HighlightSearch() && current.search.Marked(i), width))
+		lines = append(lines, table.IndentedRow(layout, current.pullRequests[i], current.depths[i], i == current.window.Cursor(), view.options.HighlightSearch() && current.search.Marked(i), width))
 	}
 	return strings.Join(lines, "\n")
 }
