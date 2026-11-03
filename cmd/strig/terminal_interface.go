@@ -61,7 +61,7 @@ func (application application) userInterfaceOptions(logger *slog.Logger, notice 
 		StateDirectory: stateDirectory,
 		Logger:         logger, Notice: notice, StartingOptions: application.config.Options,
 		ViewCommands: append(viewCommands(), names...),
-		PluginRunner: runner, PluginCommands: commands,
+		PluginRunner: runner, PluginCommands: commands, Checkout: application.checkout,
 	}
 }
 

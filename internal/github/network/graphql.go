@@ -48,6 +48,7 @@ type graphqlPullRequest struct {
 	UpdatedAt         time.Time
 	ReviewDecision    string
 	BaseRefName       string
+	BaseRefOid        string
 	HeadRefName       string
 	HeadRefOid        string
 	IsCrossRepository bool
@@ -303,6 +304,7 @@ func mapPullRequest(node graphqlPullRequest) (github.PullRequest, error) {
 		URL:            node.URL,
 		HeadBranch:     node.HeadRefName,
 		BaseBranch:     node.BaseRefName,
+		BaseSHA:        node.BaseRefOid,
 
 		CrossRepository: node.IsCrossRepository,
 	}, nil

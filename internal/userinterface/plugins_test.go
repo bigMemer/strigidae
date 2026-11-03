@@ -713,3 +713,29 @@ func TestEffectsWaitForTheEndWithoutSend(test *testing.T) {
 		test.Errorf("reloads = %d, want 1", root.reloads)
 	}
 }
+
+// A run is told the checkout only for a pull request of its repository.
+func TestPluginRequestCarriesTheCheckout(test *testing.T) {
+	checkout := Checkout{Directory: "/work/widgets", Host: "github.com", Repository: github.Repository{Owner: "Acme", Name: "Widgets"}}
+	for _, testCase := range []struct {
+		name       string
+		repository plugins.Repository
+		want       string
+	}{
+		{"same repository, any case", plugins.Repository{Host: "github.com", Owner: "acme", Name: "widgets"}, "/work/widgets"},
+		{"another repository", plugins.Repository{Host: "github.com", Owner: "acme", Name: "gadgets"}, ""},
+		{"another host", plugins.Repository{Host: "ghe.example.com", Owner: "acme", Name: "widgets"}, ""},
+	} {
+		test.Run(testCase.name, func(test *testing.T) {
+			runner := &fakeRunner{}
+			model := New(newPullRequestView(pullRequestSeven), theme.Default(), Options{
+				ViewCommands: testViewCommands, PluginRunner: runner, Checkout: checkout,
+				PluginCommands: []PluginCommand{{Name: "ask", Target: config.TargetLines}},
+			})
+			step(model, RunPluginMessage{Name: "ask", Request: plugins.Request{Command: "ask", Repository: testCase.repository}, Identity: pullRequestSeven})()
+			if got := runner.requests[0].Checkout; got != testCase.want {
+				test.Errorf("checkout = %q, want %q", got, testCase.want)
+			}
+		})
+	}
+}

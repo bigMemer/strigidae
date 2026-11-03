@@ -5,6 +5,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/MikePors/strigidae/internal/github"
 	"github.com/MikePors/strigidae/internal/github/fake"
 	"github.com/MikePors/strigidae/internal/userinterface"
@@ -77,5 +79,31 @@ func TestViewCommandsAreCollectedFromTheViews(test *testing.T) {
 			test.Errorf("view command %q is declared twice", name)
 		}
 		seen[name] = true
+	}
+}
+
+// The checkout strig starts in is kept, -R or not, so a plugin run on a pull
+// request of its repository is told the directory.
+func TestWorkingCheckout(test *testing.T) {
+	for _, testCase := range []struct {
+		name      string
+		checkout  bool
+		arguments []string
+		want      userinterface.Checkout
+	}{
+		{"inferred", true, nil, userinterface.Checkout{Directory: "/work", Host: "github.com", Repository: github.Repository{Owner: "o", Name: "r"}}},
+		{"kept with -R", true, []string{"-R", "x/y"}, userinterface.Checkout{Directory: "/work", Host: "github.com", Repository: github.Repository{Owner: "o", Name: "r"}}},
+		{"outside a checkout", false, []string{"-R", "x/y"}, userinterface.Checkout{}},
+	} {
+		test.Run(testCase.name, func(test *testing.T) {
+			harness := newHarness(map[string]string{"origin": "git@github.com:o/r.git"}, testCase.checkout, nil)
+			var stdout, stderr bytes.Buffer
+			if code := run(testCase.arguments, &stdout, &stderr, harness.dependencies); code != 0 {
+				test.Fatalf("exit code = %d: %s", code, stderr.String())
+			}
+			if diff := cmp.Diff(testCase.want, harness.application.checkout); diff != "" {
+				test.Errorf("checkout (-want +got):\n%s", diff)
+			}
+		})
 	}
 }

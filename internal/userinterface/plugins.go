@@ -26,6 +26,23 @@ type PluginRunner interface {
 	Run(ctx context.Context, name string, request plugins.Request) ([]plugins.Effect, error)
 }
 
+// Checkout is the git checkout strig runs in: its top directory and the
+// repository its remote names. A plugin run on a pull request of that
+// repository is told the directory.
+type Checkout struct {
+	Directory  string
+	Host       string
+	Repository github.Repository
+}
+
+// of reports whether the checkout is of the repository a request names.
+func (checkout Checkout) of(repository plugins.Repository) bool {
+	return checkout.Directory != "" &&
+		github.NormalizeHost(checkout.Host) == github.NormalizeHost(repository.Host) &&
+		strings.EqualFold(checkout.Repository.Owner, repository.Owner) &&
+		strings.EqualFold(checkout.Repository.Name, repository.Name)
+}
+
 // PluginCommand is a configured plugin as the views see it: a command name
 // and what the command acts on.
 type PluginCommand struct {
@@ -135,6 +152,9 @@ func (model *Model) startPlugin(message RunPluginMessage) tea.Cmd {
 	}
 	if model.pluginContext == nil {
 		model.pluginContext, model.pluginCancel = context.WithCancel(context.Background())
+	}
+	if model.checkout.of(message.Request.Repository) {
+		message.Request.Checkout = model.checkout.Directory
 	}
 	model.pluginSequence++
 	run := model.pluginSequence

@@ -56,7 +56,7 @@ func testDetail() github.PullRequestDetail {
 			Repository: testRepository, Number: 7, Title: "Add retry policy to sync client",
 			Author: "alice", State: github.PullRequestStateOpen,
 			ReviewDecision: github.ReviewDecisionChangesRequested,
-			HeadBranch:     "feat/retry", BaseBranch: "main",
+			HeadBranch:     "feat/retry", BaseBranch: "main", BaseSHA: "bbbb2222",
 			URL: "https://example.test/acme/widgets/pull/7",
 		},
 		Body:           longBody,

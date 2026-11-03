@@ -184,6 +184,10 @@ func TestRunWritesProtocolRequest(test *testing.T) {
 		Repository: Repository{Host: "ghe.example.com", Owner: "acme", Name: "widgets"},
 		Number:     7,
 		Head:       "abc123",
+		HeadRef:    "feat/x",
+		Base:       Branch{Ref: "main", SHA: "def456"},
+		URL:        "https://ghe.example.com/acme/widgets/pull/7",
+		Checkout:   "/work/widgets",
 		Target:     &Target{Path: "a/b.go", Side: "RIGHT", Line: 12, StartLine: 10, Excerpt: " one\n+two\n-three"},
 	}
 	for _, testCase := range []struct {
@@ -195,12 +199,12 @@ func TestRunWritesProtocolRequest(test *testing.T) {
 			"lines",
 			linesRequest,
 			`{"protocol":1,"command":"ask","arguments":"why is this \u003chere\u003e?","repository":{"host":"ghe.example.com","owner":"acme","name":"widgets"},` +
-				`"number":7,"head":"abc123","target":{"path":"a/b.go","side":"RIGHT","line":12,"startLine":10,"excerpt":" one\n+two\n-three"}}`,
+				`"number":7,"head":"abc123","headRef":"feat/x","base":{"ref":"main","sha":"def456"},"url":"https://ghe.example.com/acme/widgets/pull/7","checkout":"/work/widgets","target":{"path":"a/b.go","side":"RIGHT","line":12,"startLine":10,"excerpt":" one\n+two\n-three"}}`,
 		},
 		{
 			"pull request has no target",
 			Request{Command: "summarize", Repository: Repository{Host: "github.com", Owner: "acme", Name: "widgets"}, Number: 7, Head: "abc123"},
-			`{"protocol":1,"command":"summarize","arguments":"","repository":{"host":"github.com","owner":"acme","name":"widgets"},"number":7,"head":"abc123"}`,
+			`{"protocol":1,"command":"summarize","arguments":"","repository":{"host":"github.com","owner":"acme","name":"widgets"},"number":7,"head":"abc123","headRef":"","base":{"ref":"","sha":""},"url":""}`,
 		},
 	} {
 		test.Run(testCase.name, func(test *testing.T) {
@@ -587,7 +591,7 @@ func TestRunPlainReadGetsTheWholeRequest(test *testing.T) {
 	if err != nil {
 		test.Fatal(err)
 	}
-	want := `{"protocol":1,"command":"","arguments":"","repository":{"host":"","owner":"","name":""},"number":0,"head":""}`
+	want := `{"protocol":1,"command":"","arguments":"","repository":{"host":"","owner":"","name":""},"number":0,"head":"","headRef":"","base":{"ref":"","sha":""},"url":""}`
 	if diff := cmp.Diff(want, string(got)); diff != "" {
 		test.Errorf("request read mismatch (-want +got):\n%s", diff)
 	}

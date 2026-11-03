@@ -12,6 +12,7 @@
         "updatedAt": "2026-10-19T08:30:00Z",
         "reviewDecision": "CHANGES_REQUESTED",
         "baseRefName": "main",
+        "baseRefOid": "fedcba9876543210fedcba9876543210fedcba98",
         "headRefName": "feat/4-github-client",
         "headRefOid": "0000000000000000000000000000000000001111",
         "isCrossRepository": false,
