@@ -102,6 +102,7 @@ type Model struct {
 	pluginRuns     map[int]pluginRun
 	pluginRunning  sync.WaitGroup // runs whose command has not returned; see Close
 	quitting       bool           // quit began and is waiting for plugin runs
+	send           func(tea.Msg)  // the program's Send, for effects of runs under way; see SetSend
 	localThreads   localThreadStore
 	localFiles     localThreadFiles
 	clock          func() time.Time
@@ -179,6 +180,11 @@ func New(root View, activeTheme theme.Theme, startup Options) *Model {
 	}
 }
 
+// SetSend gives the model the program's Send, so the effects of a plugin run
+// are applied as the plugin prints them. Without it they are applied when the
+// run ends. cmd/strig calls it before the program runs.
+func (model *Model) SetSend(send func(tea.Msg)) { model.send = send }
+
 // Init starts the root view, shows the startup notice if any, and asks the
 // terminal for its background colour so the theme can match light and dark
 // terminals.
@@ -230,6 +236,8 @@ func (model *Model) update(message tea.Msg) tea.Cmd {
 		return model.quit()
 	case RunPluginMessage:
 		return model.startPlugin(message)
+	case pluginProgressMessage:
+		return model.pluginProgress(message)
 	case pluginResultMessage:
 		return model.pluginResult(message)
 	case PullRequestOpenedMessage:

@@ -44,6 +44,8 @@ type pendingRun struct {
 	effects []Effect
 	size    int               // bytes of effect lines so far
 	reply   chan serviceReply // buffered: written once, by whoever ends the run
+	// progress, if set, is given each effect as it arrives.
+	progress func(Effect)
 }
 
 type serviceReply struct {
@@ -55,12 +57,12 @@ type serviceReply struct {
 // running, and waits for the run's "done". The timeout starts here, with the
 // run. A run that ends before "done" (timeout, cancel) leaves the service
 // running; whatever it prints for the run later is dropped.
-func (runner *Runner) ask(ctx context.Context, found *entry, request Request) ([]Effect, error) {
+func (runner *Runner) ask(ctx context.Context, found *entry, request Request, progress func(Effect)) ([]Effect, error) {
 	name := found.plugin.Command
 	runContext, cancel := runner.withTimeout(ctx, found.plugin.Timeout)
 	defer cancel()
 
-	process, identifier, reply, err := runner.begin(found.service)
+	process, identifier, reply, err := runner.begin(found.service, progress)
 	if err != nil {
 		return nil, fmt.Errorf("start plugin %q: %w", name, err)
 	}
@@ -91,7 +93,7 @@ func (runner *Runner) ask(ctx context.Context, found *entry, request Request) ([
 }
 
 // begin hands out a run of the service, starting the process if needed.
-func (runner *Runner) begin(serving *service) (*serviceProcess, string, <-chan serviceReply, error) {
+func (runner *Runner) begin(serving *service, progress func(Effect)) (*serviceProcess, string, <-chan serviceReply, error) {
 	serving.mutex.Lock()
 	defer serving.mutex.Unlock()
 	if serving.process == nil {
@@ -103,7 +105,7 @@ func (runner *Runner) begin(serving *service) (*serviceProcess, string, <-chan s
 	}
 	serving.next++
 	identifier := strconv.Itoa(serving.next)
-	waiting := &pendingRun{reply: make(chan serviceReply, 1)}
+	waiting := &pendingRun{reply: make(chan serviceReply, 1), progress: progress}
 	serving.process.pending[identifier] = waiting
 	return serving.process, identifier, waiting.reply, nil
 }
@@ -217,6 +219,14 @@ func (runner *Runner) serviceLine(serving *service, process *serviceProcess, lin
 		runner.logger.Warn("plugin service printed a line that is not an effect of a run; skipped", "plugin", serving.name)
 		return
 	}
+	// An effect goes to the run's progress after the lock is let go: progress
+	// may wait for the user interface.
+	var early func()
+	defer func() {
+		if early != nil {
+			early()
+		}
+	}()
 	serving.mutex.Lock()
 	defer serving.mutex.Unlock()
 	identifier := *header.Identifier
@@ -246,6 +256,9 @@ func (runner *Runner) serviceLine(serving *service, process *serviceProcess, lin
 		runner.skippedEffect(serving.name, effect.Name)
 	default:
 		waiting.effects = append(waiting.effects, effect)
+		if progress := waiting.progress; progress != nil {
+			early = func() { progress(effect) }
+		}
 	}
 }
 

@@ -95,15 +95,29 @@ type CommandLineKeeper interface {
 // of *plugins.Runner: Close ends them once the runs have ended.
 type pluginStopper interface{ Stop() }
 
+// progressRunner can give a run's effects as they are printed;
+// *plugins.Runner does.
+type progressRunner interface {
+	RunWithProgress(ctx context.Context, name string, request plugins.Request, progress func(plugins.Effect)) ([]plugins.Effect, error)
+}
+
 // pluginRun is a run the root has started and not yet heard back from.
 type pluginRun struct {
 	identity PullRequestIdentity
 	name     string
+	// streamed: the effects come as they are printed, and those not held to
+	// the end were applied then.
+	streamed bool
 	// thread is the local thread the run fills, or "" when it has none.
 	thread string
 }
 
 type (
+	// pluginProgressMessage is an effect of a run still under way.
+	pluginProgressMessage struct {
+		run    int
+		effect plugins.Effect
+	}
 	pluginResultMessage struct {
 		run     int
 		effects []plugins.Effect
@@ -130,14 +144,57 @@ func (model *Model) startPlugin(message RunPluginMessage) tea.Cmd {
 		started.thread = model.askLocalThread(message)
 		shown = tea.Batch(model.broadcast(LocalThreadsMessage{Threads: model.localThreads.snapshot()}), model.saveLocalThreads(model.localThreadKey(message)))
 	}
+	runner, ctx, send := model.pluginRunner, model.pluginContext, model.send
+	progressing, streams := runner.(progressRunner)
+	streams = streams && send != nil
+	started.streamed = streams
 	model.pluginRuns[run] = started
-	runner, ctx := model.pluginRunner, model.pluginContext
 	model.pluginRunning.Add(1)
 	return tea.Batch(shown, func() tea.Msg {
 		defer model.pluginRunning.Done()
-		effects, err := runner.Run(ctx, message.Name, message.Request)
+		if !streams {
+			effects, err := runner.Run(ctx, message.Name, message.Request)
+			return pluginResultMessage{run: run, effects: effects, err: err}
+		}
+		// send returns once the message is queued, so every effect comes
+		// before the result returned below.
+		effects, err := progressing.RunWithProgress(ctx, message.Name, message.Request, func(effect plugins.Effect) {
+			send(pluginProgressMessage{run: run, effect: effect})
+		})
 		return pluginResultMessage{run: run, effects: effects, err: err}
 	})
+}
+
+// heldToTheEnd reports whether an effect waits for the run to end although it
+// arrived early: an answer and an error belong with the outcome (a local
+// thread, or a failure that replaces them).
+func heldToTheEnd(effect plugins.Effect) bool {
+	return effect.Name == plugins.EffectAnswer || effect.Name == plugins.EffectError
+}
+
+// pluginProgress applies an effect of a run still under way, as the result
+// would, unless it is held to the end.
+func (model *Model) pluginProgress(message pluginProgressMessage) tea.Cmd {
+	running, ok := model.pluginRuns[message.run]
+	if !ok || model.quitting || heldToTheEnd(message.effect) {
+		return nil
+	}
+	host, ok := model.hostShowing(running.identity)
+	if !ok {
+		model.log.Info("plugin effect dropped: its pull request is not on screen", "plugin", running.name, "number", running.identity.Number)
+		return nil
+	}
+	return model.pluginEffects(host, running.name, []plugins.Effect{message.effect}, false)
+}
+
+// hostShowing returns the top view when it shows the pull request.
+func (model *Model) hostShowing(identity PullRequestIdentity) (PluginHost, bool) {
+	host, ok := model.top().(PluginHost)
+	if !ok {
+		return nil, false
+	}
+	shown, ok := host.PullRequestIdentity()
+	return host, ok && shown.SamePullRequest(identity)
 }
 
 // showsThread reports whether the plugin draws its answer as a local thread.
@@ -253,13 +310,7 @@ func (model *Model) pluginResult(message pluginResultMessage) tea.Cmd {
 		}
 		return nil
 	}
-	host, ok := model.top().(PluginHost)
-	if ok {
-		var shown PullRequestIdentity
-		if shown, ok = host.PullRequestIdentity(); ok {
-			ok = shown.SamePullRequest(finished.identity)
-		}
-	}
+	host, ok := model.hostShowing(finished.identity)
 	if !ok {
 		model.log.Info("plugin result dropped: its pull request is not on screen", "plugin", finished.name, "number", finished.identity.Number)
 		return filled
@@ -271,7 +322,11 @@ func (model *Model) pluginResult(message pluginResultMessage) tea.Cmd {
 		}
 		return model.setStatus(terminaltext.Clean(message.err.Error()), statusError)
 	}
-	return tea.Batch(filled, model.pluginEffects(host, finished.name, message.effects, finished.thread != ""))
+	effects := message.effects
+	if finished.streamed { // the others were applied as they came
+		effects = slices.DeleteFunc(slices.Clone(effects), func(effect plugins.Effect) bool { return !heldToTheEnd(effect) })
+	}
+	return tea.Batch(filled, model.pluginEffects(host, finished.name, effects, finished.thread != ""))
 }
 
 // pluginEffects applies the effects in the order the plugin printed them.

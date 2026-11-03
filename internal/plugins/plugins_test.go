@@ -58,7 +58,7 @@ type outcome struct {
 func runInBackground(ctx context.Context, runner *Runner, name string, body string) <-chan outcome {
 	results := make(chan outcome, 1)
 	go func() {
-		effects, err := runner.execute(ctx, runner.entries[name], []byte(body))
+		effects, err := runner.execute(ctx, runner.entries[name], []byte(body), nil)
 		results <- outcome{effects, err}
 	}()
 	return results

@@ -81,8 +81,10 @@ Until the pull request has loaded, every plugin command says `pull request not
 loaded yet`, as the built-in commands do.
 
 While a run of the pull request on screen is under way, or waiting behind
-another run of the same plugin, the status bar shows its usual spinner. What
-the plugin prints appears in the status bar when it finishes: a `notice` as
+another run of the same plugin, the status bar shows its usual spinner. A `notice`, `reload` or `command` is
+handled as soon as the plugin prints its line, while the run goes on (see
+"When effects are handled"); an `answer` and an `error` wait for the run to
+end. They show in the status bar: a `notice` as
 information, an `error` (and a failed run) as an error, and an `answer` as a
 notice. A plugin with `show: thread` (below) differs: its answer, and its
 failure (an `error` effect, a failed run or a timeout), go to the thread, and
@@ -224,6 +226,7 @@ The plugin prints JSON lines on standard output. Each line is one *effect*:
 Rules:
 
 - Effects are handled in the order they were printed. Blank lines are skipped.
+  When each one is handled is described below.
 - An effect with a name strig does not know is logged and skipped, so a newer
   plugin works with an older strig.
 - A line that is not a JSON object with a `name` fails the run. So does a known
@@ -241,6 +244,22 @@ Standard error is written to strig's log file (`strig --log-path` prints where)
 and never shown on the screen, one log record per line with the plugin's name,
 so the text cannot pass as a log line of strig's own. Only the first 64 KiB of
 a run's standard error is kept, followed by a note; the rest is dropped.
+
+## When effects are handled
+
+strig reads a plugin's output as it is printed. As soon as a line is a whole
+`notice`, `reload` or `command` effect, it is handled, while the run goes on,
+so a slow plugin can say what it is doing (`{"name": "notice", "data":
+{"text": "reading the diff…"}}`) or show something it has already made.
+
+`answer` and `error` wait for the end of the run: they are its outcome (the
+answer of a local thread, or the reason for a failure).
+
+What was handled early stays: a run that fails afterwards (a failure exit
+status, a bad line, a timeout) shows its failure, but a notice it printed has
+been shown and a reload has happened. A line that is not a known effect is
+only judged at the end, as described above. Effects of a run whose pull
+request is no longer on screen are dropped as they arrive, like its result.
 
 ## Commands a plugin can run
 
@@ -315,7 +334,8 @@ What differs from a one-off run:
   is for.
 - **Effects** are printed one JSON line each, as in "What the plugin prints",
   with the run's `id` beside `name` and `data`. `{"id": "...", "name": "done"}`
-  ends the run; its effects are then handled as those of a one-off run are.
+  ends the run. Its effects are handled as those of a one-off run are: a
+  `notice`, `reload` or `command` as it arrives, the rest at `done`.
   The effects of several runs may be printed in any order.
 
   ```json
