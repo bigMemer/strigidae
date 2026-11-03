@@ -14,6 +14,7 @@ import (
 	cliBrowser "github.com/cli/browser"
 
 	"github.com/MikePors/strigidae/internal/clipboard"
+	"github.com/MikePors/strigidae/internal/config"
 	"github.com/MikePors/strigidae/internal/environment"
 	"github.com/MikePors/strigidae/internal/logging"
 	"github.com/MikePors/strigidae/internal/userinterface"
@@ -62,7 +63,17 @@ func (application application) userInterfaceOptions(logger *slog.Logger, notice 
 		Logger:         logger, Notice: notice, StartingOptions: application.config.Options,
 		ViewCommands: append(viewCommands(), names...),
 		PluginRunner: runner, PluginCommands: commands, Checkout: application.checkout,
+		KeyMappings: keyMappings(application.config.Keys),
 	}
+}
+
+// keyMappings hands the config's key mappings to the shell.
+func keyMappings(configured []config.KeyMapping) []userinterface.KeyMapping {
+	mappings := make([]userinterface.KeyMapping, 0, len(configured))
+	for _, mapping := range configured {
+		mappings = append(mappings, userinterface.KeyMapping{Sequence: mapping.Key, Line: mapping.Command})
+	}
+	return mappings
 }
 
 // viewCommands collects the command names every view package declares, so the

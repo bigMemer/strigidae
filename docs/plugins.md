@@ -60,7 +60,8 @@ Each plugin is a `:` command in the pull request workspace, named by its
 ```
 
 Plugin commands exist only in the workspace; on a list or the dashboard strig
-says `not available here: ask`. They have no keys.
+says `not available here: ask`. They have no keys of their own; the config's
+`keys` section can map one (see [config.md](config.md)).
 
 - `target: pull-request` works from any pane, as soon as the pull request has
   loaded.

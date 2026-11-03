@@ -56,3 +56,8 @@ tabs:
 #     on_run: [strig-ask]        # the program and its arguments
 #     target: lines              # lines or pull-request
 #     timeout: 120s              # optional, default 60s
+
+# Keys that run a command line, as if typed after ":". Keys strig already binds
+# keep their meaning. See docs/config.md.
+# keys:
+#   - {key: g a, command: ask}

@@ -93,6 +93,28 @@ that is already a command of strig is an error. The first `on_run` item must be 
 an absolute path or a `~/` path. The protocol and the rules of a run are in
 [plugins.md](plugins.md).
 
+### `keys`
+
+Optional. Key sequences that run a command line, as if it had been typed
+after `:`. Each entry has a `key` (the keys of the sequence separated by
+spaces, as the help shows them: `g a`, `ctrl+a`, `Z Z`) and a `command` (the
+line, with or without the leading `:`, arguments included).
+
+```yaml
+keys:
+  - {key: g a, command: ask}
+  - {key: g A, command: analyze}
+  - {key: ctrl+k, command: checks}
+```
+
+A mapping never hides a key strig binds: where a view, or strig everywhere,
+already uses the sequence, the key keeps that meaning and the mapping does
+nothing there. Elsewhere it runs the line, with the rules of a typed command
+(`not available here: ask` outside the pull request, for example). A key
+starting with a digit from `1` to `9` would be read as a count, so it is an
+error, as is the same key twice. Mappings are listed in the help (`?`) with
+the global keys.
+
 ### Options
 
 Optional yes/no keys, written at the top level next to `theme`. Each is also
