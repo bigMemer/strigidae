@@ -126,6 +126,7 @@ func silenceBrowser() {
 // runProgram runs the program and then ends the plugin runs, on every path
 // out of Run: a signal ends Bubble Tea without the model seeing a quit.
 func runProgram(program *tea.Program, model *userinterface.Model) error {
+	model.SetSend(program.Send)
 	_, err := program.Run()
 	model.Close()
 	return err

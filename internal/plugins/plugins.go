@@ -236,23 +236,31 @@ func New(plugins []config.Plugin, options Options) *Runner {
 // first, or prints a bad effect or too much for the run; a timeout or a
 // cancel leaves the service running.
 func (runner *Runner) Run(ctx context.Context, name string, request Request) ([]Effect, error) {
+	return runner.RunWithProgress(ctx, name, request, nil)
+}
+
+// RunWithProgress is Run, and also gives progress each effect as soon as the
+// plugin has printed its line, from another goroutine, before Run returns.
+// The effects returned at the end are the same as Run's: a run that then
+// fails returns none, although progress has seen some. A nil progress is Run.
+func (runner *Runner) RunWithProgress(ctx context.Context, name string, request Request, progress func(Effect)) ([]Effect, error) {
 	request.Protocol = Protocol
 	found, ok := runner.entries[name]
 	if !ok {
 		return nil, fmt.Errorf("plugin %q: %w", name, ErrUnknownPlugin)
 	}
 	if found.service != nil {
-		return runner.ask(ctx, found, request)
+		return runner.ask(ctx, found, request, progress)
 	}
 	body, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("encode request for plugin %q: %w", name, err)
 	}
 	// The newline lets a shell script read the request with a plain read.
-	return runner.execute(ctx, found, append(body, '\n'))
+	return runner.execute(ctx, found, append(body, '\n'), progress)
 }
 
-func (runner *Runner) execute(ctx context.Context, found *entry, body []byte) ([]Effect, error) {
+func (runner *Runner) execute(ctx context.Context, found *entry, body []byte, progress func(Effect)) ([]Effect, error) {
 	name := found.plugin.Command
 	if err := found.queue.acquire(ctx, func() { runner.queued(name) }); err != nil {
 		return nil, err
@@ -261,12 +269,12 @@ func (runner *Runner) execute(ctx context.Context, found *entry, body []byte) ([
 
 	runContext, cancel := runner.withTimeout(ctx, found.plugin.Timeout)
 	defer cancel()
-	return runner.start(ctx, runContext, found.plugin, body)
+	return runner.start(ctx, runContext, found.plugin, body, progress)
 }
 
 // start runs the process. parent is the caller's context, runContext also has
 // the timeout; comparing them tells a timeout from a cancellation.
-func (runner *Runner) start(parent, runContext context.Context, plugin config.Plugin, body []byte) ([]Effect, error) {
+func (runner *Runner) start(parent, runContext context.Context, plugin config.Plugin, body []byte, progress func(Effect)) ([]Effect, error) {
 	stopContext, stop := context.WithCancel(runContext)
 	defer stop()
 
@@ -274,7 +282,7 @@ func (runner *Runner) start(parent, runContext context.Context, plugin config.Pl
 	if err != nil {
 		return nil, fmt.Errorf("start plugin %q: %w", plugin.Command, err)
 	}
-	output := &limitedBuffer{limit: MaximumOutputSize, stop: stop}
+	output := &limitedBuffer{limit: MaximumOutputSize, stop: stop, line: progressLines(progress)}
 	command := exec.CommandContext(stopContext, program, plugin.OnRun[1:]...)
 	command.Env = runner.environment
 	// A plugin that never reads its input gets EPIPE on the write; exec
@@ -561,6 +569,10 @@ type limitedBuffer struct {
 	limit    int
 	stop     context.CancelFunc
 	overflow bool
+	// line, if set, is given each complete line as it arrives; scanned is
+	// how much of the buffer it has seen.
+	line    func([]byte)
+	scanned int
 }
 
 var errOutputLimit = errors.New("output limit reached")
@@ -571,7 +583,37 @@ func (limited *limitedBuffer) Write(data []byte) (int, error) {
 		limited.stop()
 		return 0, errOutputLimit
 	}
-	return limited.buffer.Write(data)
+	written, err := limited.buffer.Write(data)
+	if limited.line == nil {
+		return written, err
+	}
+	for {
+		rest := limited.buffer.Bytes()[limited.scanned:]
+		end := bytes.IndexByte(rest, '\n')
+		if end < 0 {
+			return written, err
+		}
+		limited.line(rest[:end])
+		limited.scanned += end + 1
+	}
+}
+
+// progressLines gives progress the effect of each line that is one strig
+// knows; the rest are left to the parse at the end, which decides the run.
+// Nil for a nil progress.
+func progressLines(progress func(Effect)) func([]byte) {
+	if progress == nil {
+		return nil
+	}
+	return func(line []byte) {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			return
+		}
+		if effect, known, err := decodeEffect(line); err == nil && known {
+			progress(effect)
+		}
+	}
 }
 
 func (limited *limitedBuffer) exceeded() bool { return limited.overflow }

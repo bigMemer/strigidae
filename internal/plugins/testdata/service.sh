@@ -25,6 +25,11 @@ while IFS= read -r line; do
 		echo '{"name":"notice","data":{"text":"no id"}}'
 		answer "$id" ok
 		;;
+	progress)
+		printf '{"id":"%s","name":"notice","data":{"text":"working"}}\n' "$id"
+		until [ -e "$FAKE_DIRECTORY/gate" ]; do sleep 0.02; done
+		answer "$id" done
+		;;
 	bad-effect) printf '{"id":"%s","name":"notice"}\n' "$id" ;;
 	long)
 		head -c 1100000 /dev/zero | tr '\0' a

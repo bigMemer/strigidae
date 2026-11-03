@@ -609,3 +609,107 @@ func TestCloseStopsTheServicesAfterTheRuns(test *testing.T) {
 		test.Errorf("events (-want +got):\n%s", diff)
 	}
 }
+
+// streamingRunner gives its effects to progress, then returns them.
+type streamingRunner struct {
+	effects []plugins.Effect
+	err     error
+}
+
+func (runner *streamingRunner) Run(ctx context.Context, name string, request plugins.Request) ([]plugins.Effect, error) {
+	return runner.RunWithProgress(ctx, name, request, nil)
+}
+
+func (runner *streamingRunner) RunWithProgress(_ context.Context, _ string, _ plugins.Request, progress func(plugins.Effect)) ([]plugins.Effect, error) {
+	for _, effect := range runner.effects {
+		if progress != nil {
+			progress(effect)
+		}
+	}
+	if runner.err != nil {
+		return nil, runner.err
+	}
+	return runner.effects, nil
+}
+
+// streamedRun runs a plugin with a Send that keeps the messages, and returns
+// them and the run's result.
+func streamedRun(model *Model) (sent []tea.Msg, result tea.Msg) {
+	model.SetSend(func(message tea.Msg) { sent = append(sent, message) })
+	result = startRun(model, pullRequestSeven)()
+	return sent, result
+}
+
+func TestPluginEffectsApplyAsTheyArePrinted(test *testing.T) {
+	root := newPullRequestView(pullRequestSeven)
+	runner := &streamingRunner{effects: []plugins.Effect{
+		{Name: plugins.EffectNotice, Text: "working"},
+		{Name: plugins.EffectReload},
+		{Name: plugins.EffectAnswer, Text: "Because."},
+		{Name: plugins.EffectCommand, Line: readOnly},
+	}}
+	model, _ := pluginModel(test, runner, root)
+	sent, result := streamedRun(model)
+	if len(sent) != 4 {
+		test.Fatalf("%d effects sent, want 4", len(sent))
+	}
+	step(model, sent[0])
+	if model.status.text != "working" {
+		test.Errorf("status during the run = %q, want the notice", model.status.text)
+	}
+	step(model, sent[1])
+	step(model, sent[2])
+	if model.status.text != "working" {
+		test.Errorf("the answer showed before the run ended: %q", model.status.text)
+	}
+	step(model, sent[3])
+	if root.reloads != 1 || len(root.ran) != 1 {
+		test.Errorf("during the run: reloads %d, commands %v; want one of each", root.reloads, root.ran)
+	}
+	step(model, result)
+	if root.reloads != 1 || len(root.ran) != 1 {
+		test.Errorf("the result applied early effects again: reloads %d, commands %v", root.reloads, root.ran)
+	}
+	if model.status.text != "Because." {
+		test.Errorf("status after the run = %q, want the answer", model.status.text)
+	}
+}
+
+func TestStreamedEffectsOfAFailedRunStay(test *testing.T) {
+	root := newPullRequestView(pullRequestSeven)
+	runner := &streamingRunner{effects: []plugins.Effect{{Name: plugins.EffectReload}, {Name: plugins.EffectError, Text: "no model"}}, err: errors.New(`plugin "ask": no model`)}
+	model, _ := pluginModel(test, runner, root)
+	sent, result := streamedRun(model)
+	for _, message := range sent {
+		step(model, message)
+	}
+	if model.status.text != "" {
+		test.Errorf("the error effect showed before the run ended: %q", model.status.text)
+	}
+	step(model, result)
+	if root.reloads != 1 || model.status.text != `plugin "ask": no model` || model.status.kind != statusError {
+		test.Errorf("reloads %d, status %q (%d)", root.reloads, model.status.text, model.status.kind)
+	}
+}
+
+func TestStreamedEffectNeedsItsPullRequest(test *testing.T) {
+	root := newPullRequestView(pullRequestSeven)
+	model, _ := pluginModel(test, &streamingRunner{effects: []plugins.Effect{{Name: plugins.EffectNotice, Text: "working"}}}, root)
+	sent, _ := streamedRun(model)
+	root.identity = PullRequestIdentity{Repository: pullRequestSeven.Repository, Number: 8}
+	step(model, sent[0])
+	if model.status.text != "" {
+		test.Errorf("an effect of #7 showed on #8: %q", model.status.text)
+	}
+}
+
+// Without Send, as in tests and before the program runs, effects wait for
+// the end of the run, as with a runner that can't stream.
+func TestEffectsWaitForTheEndWithoutSend(test *testing.T) {
+	root := newPullRequestView(pullRequestSeven)
+	model, _ := pluginModel(test, &streamingRunner{effects: []plugins.Effect{{Name: plugins.EffectReload}}}, root)
+	step(model, startRun(model, pullRequestSeven)())
+	if root.reloads != 1 {
+		test.Errorf("reloads = %d, want 1", root.reloads)
+	}
+}
