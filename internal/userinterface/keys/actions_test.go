@@ -73,7 +73,7 @@ func TestGlobalActionsCoverEveryBinding(test *testing.T) {
 	bindingType := reflect.TypeFor[key.Binding]()
 	for i := range value.NumField() {
 		field := value.Type().Field(i)
-		if field.Type != bindingType || field.Name == "Count" {
+		if field.Type != bindingType || field.Name == "Count" || field.Name == "Complete" {
 			continue
 		}
 		binding := value.Field(i).Addr().Pointer()

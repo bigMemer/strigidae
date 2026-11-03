@@ -30,6 +30,18 @@ func TestFilterAndChoose(test *testing.T) {
 	}
 }
 
+func TestSelectStartsOnTheItem(test *testing.T) {
+	model := New(theme.Default(), "Branches", []string{"a", "b", "c"})
+	model.Select(2)
+	if result := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter}); result.Index != 2 {
+		test.Errorf("chosen = %d, want 2", result.Index)
+	}
+	model.Select(7) // out of range: stays
+	if result := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter}); result.Index != 2 {
+		test.Errorf("chosen after an out-of-range select = %d, want 2", result.Index)
+	}
+}
+
 func TestCursorAndEsc(test *testing.T) {
 	model := New(theme.Default(), "Files", []string{"x", "y", "z"})
 	model.Update(tea.KeyPressMsg{Code: tea.KeyDown})

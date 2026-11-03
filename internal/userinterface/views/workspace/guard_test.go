@@ -17,6 +17,10 @@ import (
 // tables below fails TestGuardTableCoversEveryKind.
 var writeKinds = []writeKind{writeComment, writeOverviewComment, writeThread, writeReaction, writeReview, writeMerge, writeDiscard, writePullRequest}
 
+// pluginKinds are the guard kinds of the plugin commands: they write nothing,
+// so busy states do not block them.
+var pluginKinds = []writeKind{usePluginLines, usePluginPullRequest}
+
 // busyCase is one busy state: how to start it, what it is called and the
 // notice it gives; saving says whether it counts as a comment write in flight.
 type busyCase struct {
@@ -128,8 +132,33 @@ func TestGuardTableCoversEveryKind(test *testing.T) {
 			test.Errorf("write kind %d has no action in the tests", kind)
 		}
 	}
-	if len(guardTable) != len(writeKinds) {
-		test.Errorf("guard table has %d rows for %d kinds", len(guardTable), len(writeKinds))
+	for _, kind := range pluginKinds {
+		if _, ok := guardTable[kind]; !ok {
+			test.Errorf("plugin kind %d has no row in the guard table", kind)
+		}
+	}
+	if len(guardTable) != len(writeKinds)+len(pluginKinds) {
+		test.Errorf("guard table has %d rows for %d kinds", len(guardTable), len(writeKinds)+len(pluginKinds))
+	}
+}
+
+// A plugin command needs the pull request to have loaded (and, for lines, the
+// diff), and nothing else.
+func TestGuardLetsPluginsThroughBusyStates(test *testing.T) {
+	busy := guardState{loaded: true, diffReady: true, submittingReview: true, mergeInProgress: true, commentSaving: true}
+	for _, kind := range pluginKinds {
+		if notice := busy.admit(kind); notice != nil {
+			test.Errorf("plugin kind %d blocked while busy: %q", kind, infoText(notice()))
+		}
+		if notice := (guardState{}).admit(kind); infoText(notice()) != "pull request not loaded yet" {
+			test.Errorf("plugin kind %d before the pull request loaded: %q", kind, infoText(notice()))
+		}
+	}
+	if notice := (guardState{loaded: true}).admit(usePluginLines); infoText(notice()) != "diff not loaded" {
+		test.Errorf("lines plugin without a diff: %q", infoText(notice()))
+	}
+	if notice := (guardState{loaded: true}).admit(usePluginPullRequest); notice != nil {
+		test.Errorf("pull request plugin without a diff: %q", infoText(notice()))
 	}
 }
 

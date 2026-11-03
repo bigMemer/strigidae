@@ -39,7 +39,6 @@ linters:
         core-imports-no-user-interface:
           files:
             - "**/internal/github/**"
-            - "**/internal/beefis/**"
             - "**/internal/analysis/**"
             - "**/internal/diff/**"
             - "**/internal/config/**"
@@ -47,6 +46,7 @@ linters:
             - "**/internal/editor/**"
             - "**/internal/clipboard/**"
             - "**/internal/environment/**"
+            - "**/internal/plugins/**"
             - "**/internal/gitrepository/**"
             - "**/internal/logging/**"
             - "**/internal/version/**"

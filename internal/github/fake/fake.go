@@ -41,6 +41,8 @@ const (
 	MethodGetMergeStatus     = "GetMergeStatus"
 	MethodMergePullRequest   = "MergePullRequest"
 	MethodUpdatePullRequest  = "UpdatePullRequest"
+	MethodListBranches       = "ListBranches"
+	MethodCreatePullRequest  = "CreatePullRequest"
 )
 
 // Call is one recorded call with the arguments that apply to its method.
@@ -52,8 +54,11 @@ type Call struct {
 	Page             github.PageRequest
 	ThreadIdentifier string
 	Body             string
-	// Title is set by UpdatePullRequest.
+	// Title is set by UpdatePullRequest and CreatePullRequest.
 	Title string
+	// Head, Base and Draft are set by CreatePullRequest.
+	Head, Base string
+	Draft      bool
 	// ReviewIdentifier is set by DeleteReview.
 	ReviewIdentifier string
 	// PullRequestIdentifier, Path and Viewed are set by the methods that take them:
@@ -110,6 +115,8 @@ type Client struct {
 	merge          map[github.Repository]MergeSettings
 	merges         []Merge
 	updates        []github.UpdatePullRequestInput
+	branches       map[github.Repository][]github.Branch
+	created        []github.CreatePullRequestInput
 	added          []github.AddThreadInput
 	started        []StartedReview
 	deleted        []string
@@ -132,6 +139,7 @@ func New() *Client {
 		injectedErrors: map[string]error{},
 		pending:        map[pullRequestKey]github.PendingReview{},
 		merge:          map[github.Repository]MergeSettings{},
+		branches:       map[github.Repository][]github.Branch{},
 	}
 }
 

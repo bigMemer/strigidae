@@ -22,7 +22,7 @@ const reactionSelection = `reactionGroups { content viewerHasReacted reactors { 
 const pullRequestFields = `
 fragment PullRequestFields on PullRequest {
   id number title url isDraft state createdAt updatedAt reviewDecision
-  baseRefName headRefName headRefOid
+  baseRefName headRefName headRefOid isCrossRepository
   statusCheckRollup { state }
   author { login }
   commentCount: comments { totalCount }
@@ -79,7 +79,7 @@ query ` + operationPullRequestDetail + `($owner: String!, $name: String!, $numbe
       ` + reactionSelection + `
       statusCheckRollup { contexts(first: 100) { totalCount nodes {
         __typename
-        ... on CheckRun { name status conclusion detailsUrl checkSuite { workflowRun { workflow { name } } } }
+        ... on CheckRun { name status conclusion detailsUrl startedAt checkSuite { app { databaseId } workflowRun { event workflow { databaseId name } } } }
         ... on StatusContext { context state targetUrl }
       } } }
       labels(first: 50) { nodes { name color } }

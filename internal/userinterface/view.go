@@ -85,6 +85,14 @@ type Commander interface {
 	Command(name, arguments string) (command tea.Cmd, handled bool)
 }
 
+// CommandLister is optionally implemented by a Commander to say which commands
+// it takes, in the order Tab on the command line offers them. Only the top view
+// is asked, so a command another view owns is not offered. It must list the
+// names Command handles.
+type CommandLister interface {
+	CommandNames() []string
+}
+
 // Resumer is optionally implemented by views that want to know they are
 // visible again after the view above them was popped (for example to refresh).
 type Resumer interface {

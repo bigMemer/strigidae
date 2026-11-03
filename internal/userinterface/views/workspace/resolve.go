@@ -141,7 +141,7 @@ func (action threadAction) finish(resolution github.ThreadResolution, err error)
 func (view *View) threadResolved(message threadResolvedMessage) tea.Cmd {
 	view.writeDone()
 	if message.err != nil {
-		if isStale(message.err) {
+		if isStale(message.err) || userinterface.IsWriteTimeout(message.err) {
 			return view.reloadThreads() // the error is already shown
 		}
 		return nil
@@ -182,7 +182,7 @@ func (view *View) applyResolution(identifier string, resolution github.ThreadRes
 	// A fresh slice, so the one handed to the file pane earlier is never written to.
 	view.threads = slices.Clone(view.threads)
 	view.threads[index].IsResolved, view.threads[index].ResolvedBy = resolution.IsResolved, resolution.ResolvedBy
-	view.showThreads()
+	view.setPaneThreads()
 	view.overview.invalidate()
 	view.layout()
 	return true

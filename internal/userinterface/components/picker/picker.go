@@ -57,6 +57,17 @@ func New(activeTheme theme.Theme, title string, items []string) *Model {
 // why some choices are missing.
 func (model *Model) SetNote(note string) { model.note = note }
 
+// Select puts the cursor on the item at index in the slice given to New, so a
+// picker can open on a sensible choice. An index out of range changes nothing.
+func (model *Model) Select(index int) {
+	for position, match := range model.matches {
+		if match == index {
+			model.window.GotoRow(position)
+			return
+		}
+	}
+}
+
 // Query returns the current filter text.
 func (model *Model) Query() string { return string(model.query) }
 

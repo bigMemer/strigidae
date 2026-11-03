@@ -49,6 +49,9 @@ func newHarness(remotes map[string]string, checkout bool, clientErr error) *harn
 				}
 				return "/work", nil
 			}
+			if arguments[0] == "branch" {
+				return "feat/current", nil
+			}
 			if address, ok := remotes[arguments[2]]; ok {
 				return address, nil
 			}
@@ -452,42 +455,6 @@ func TestDashboardShowsConfiguredTeammateTab(test *testing.T) {
 	view.Update(keys.Message{Sequence: "g t"})
 	if out := ansi.Strip(view.Render(80, 10)); !strings.Contains(out, "Needs review") || !strings.Contains(out, "review-requested:rivka") {
 		test.Errorf("teammate tab does not show its section:\n%s", out)
-	}
-}
-
-func TestRunBeefis(test *testing.T) {
-	remotes := map[string]string{"origin": "git@github.com:o/r.git"}
-	for _, testCase := range []struct {
-		name     string
-		session  string
-		wantCode int
-	}{
-		{"outside a beefis pane", "", 2},
-		{"in a beefis pane", "0b5c-session", 0},
-	} {
-		test.Run(testCase.name, func(test *testing.T) {
-			var stdout, stderr bytes.Buffer
-			harness := newHarness(remotes, true, nil)
-			getEnvironment := harness.dependencies.getEnvironment
-			harness.dependencies.getEnvironment = func(name string) string {
-				if name == "BEEFIS_SESSION" {
-					return testCase.session
-				}
-				return getEnvironment(name)
-			}
-			if code := run([]string{"--beefis"}, &stdout, &stderr, harness.dependencies); code != testCase.wantCode {
-				test.Fatalf("exit code = %d, want %d (stderr: %s)", code, testCase.wantCode, stderr.String())
-			}
-			if testCase.wantCode != 0 {
-				if !strings.Contains(stderr.String(), "not inside a beefis pane") || harness.application != nil {
-					test.Errorf("stderr = %q, started = %v", stderr.String(), harness.application != nil)
-				}
-				return
-			}
-			if harness.application == nil || !harness.application.beefis {
-				test.Error("started without beefis on")
-			}
-		})
 	}
 }
 

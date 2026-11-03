@@ -71,6 +71,49 @@ func (client blockingClient) DeleteReview(ctx context.Context, _ string) error {
 	return client.wait(ctx)
 }
 
+func (client blockingClient) UpdatePullRequest(ctx context.Context, _ github.UpdatePullRequestInput) error {
+	return client.wait(ctx)
+}
+
+func (client blockingClient) UpdateReviewComment(ctx context.Context, _, _ string) (github.ReviewComment, error) {
+	return github.ReviewComment{}, client.wait(ctx)
+}
+
+func (client blockingClient) DeleteReviewComment(ctx context.Context, _ string) error {
+	return client.wait(ctx)
+}
+
+func (client blockingClient) ResolveReviewThread(ctx context.Context, _ string) (github.ThreadResolution, error) {
+	return github.ThreadResolution{}, client.wait(ctx)
+}
+
+func (client blockingClient) UnresolveReviewThread(ctx context.Context, _ string) (github.ThreadResolution, error) {
+	return github.ThreadResolution{}, client.wait(ctx)
+}
+
+func (client blockingClient) MergePullRequest(ctx context.Context, _ github.MergeInput) error {
+	return client.wait(ctx)
+}
+
+func (client blockingClient) SubmitReview(ctx context.Context, _ github.SubmitReviewInput) error {
+	return client.wait(ctx)
+}
+
+func (client blockingClient) StartReview(ctx context.Context, _ github.StartReviewInput) (github.PendingReview, error) {
+	return github.PendingReview{}, client.wait(ctx)
+}
+
+// countingClient counts the SetFileViewed calls it hangs.
+type countingClient struct {
+	blockingClient
+	viewedCalls int
+}
+
+func (client *countingClient) SetFileViewed(ctx context.Context, pullRequestIdentifier, path string, viewed bool) error {
+	client.viewedCalls++
+	return client.blockingClient.SetFileViewed(ctx, pullRequestIdentifier, path, viewed)
+}
+
 var shortTimeouts = userinterface.Timeouts{Request: 5 * time.Millisecond, Load: 5 * time.Millisecond}
 
 func TestLoadTimesOut(test *testing.T) {
@@ -118,8 +161,11 @@ func TestWritesTimeOutAndSayTheyMayHaveGoneThrough(test *testing.T) {
 				test.Errorf("error = %v, want it to say the write may have gone through", err)
 			}
 			if testCase.name == "viewed mark" {
-				if toggle := harness.view.viewedState[firstFile]; toggle == nil || toggle.inflight {
-					test.Errorf("viewed toggle = %+v, want it settled so a later v sends again", toggle)
+				counting := &countingClient{blockingClient: blockingClient{Client: harness.client}}
+				harness.view.client = counting
+				harness.press("v")
+				if counting.viewedCalls != 1 {
+					test.Errorf("a later v sent %d SetFileViewed calls, want 1", counting.viewedCalls)
 				}
 			} else if harness.view.writes != 0 {
 				test.Errorf("writes in flight = %d, want 0", harness.view.writes)

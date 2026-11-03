@@ -1,0 +1,41 @@
+open #7 Add retry policy to sync client                                                                       
+alice · changes requested · main ← feat/retry · [enhancement] [sync] · reviewers: bob ?, team core ?, carol ✗…
+╭─ Files 0/5 viewed ────────────╮╭─ internal/sync/client.go ─────────────────────────────────────────────────╮
+│  Overview                     ││ @@ -10,8 +10,10 @@ import (                                               │
+│>   M …ernal/sync/client.go +25││  10  10       "context"                                                   │
+│    A …ernal/sync/retry.go +214││  11  11       "time"                                                      │
+│    D …ernal/sync/legacy.go -90││  12  12 ○ )                                                               │
+│    R …cy-and-backoff.md +12 -3││           ▸ carol 1 comment · 1d ago [resolved] — Nit: unused import.     │
+│    M README.md           +2 -1││  13  13                                                                   │
+│                               ││  14      -func (c *Client) Sync(ctx context.Context) error {              │
+│                               ││  15      -    return c.retryForever(ctx, c.sync)                          │
+│                               ││      14 ●+func (c *Client) Sync(ctx context.Context) error {              │
+│                               ││           ▾ bob 2 comments · 4h ago                                       │
+│                               ││           │ bob · 5h ago  ❤️ 1                                            │
+│                               ││           │   Why retry here?                                             │
+│                               ││           │                                                               │
+│                               ││           │ alice · 4h ago  ❤️ 1                                          │
+│                               ││           │   Handles flaky links.                                        │
+│                               ││>     15 ●+    return Retry(ctx, 5, func() error {                         │
+│                               ││           ▾ you 2 comments                                                │
+│                               ││           │ you                                                           │
+│                               ││           │   why is this bounded?                                        │
+│                               ││           │                                                               │
+│                               ││           │ answer (local, not on GitHub)                                 │
+│                               ││           │   no answer: no model configured                              │
+│                               ││      16  +        return c.sync(ctx)                                      │
+│                               ││      17  +    })                                                          │
+│                               ││  16  18   }                                                               │
+│                               ││  17  19                                                                   │
+│                               ││ @@ -40,5 +42,7 @@ func (c *Client) sync(ctx context.Context) error {      │
+│                               ││  40  42       if err := c.conn.Ping(ctx); err != nil {                    │
+│                               ││  41  43           return err                                              │
+│                               ││  42  44       }                                                           │
+│                               ││      45  +    // A very long comment line that only fits in the pane after│
+│                               ││      46  +    c.last = time.Now()                                         │
+│                               ││  43  47       return c.push(ctx)                                          │
+│                               ││  44  48   }                                                               │
+│                               ││           ▾ internal/sync/client.go:3 dave 1 comment · 2d ago [outdated]  │
+│                               ││           │ dave · 2d ago  ❤️ 1                                           │
+╰───────────────────────────────╯╰───────────────────────────────────────────────────────────────────────────╯
+ #7  ? help  h focus files pane  l focus right pane  f file picker  o open in browser                         

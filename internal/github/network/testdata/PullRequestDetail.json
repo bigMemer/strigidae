@@ -14,6 +14,7 @@
         "baseRefName": "main",
         "headRefName": "feat/4-github-client",
         "headRefOid": "0000000000000000000000000000000000001111",
+        "isCrossRepository": false,
         "statusCheckRollup": null,
         "author": {"login": "MikePors"},
         "commentCount": {"totalCount": 2},

@@ -95,6 +95,8 @@ func (discard reviewDiscard) finish(noPending bool, err error) tea.Msg {
 func (view *View) reviewDiscarded(message reviewDiscardedMessage) tea.Cmd {
 	view.writeDone()
 	switch {
+	case userinterface.IsWriteTimeout(message.err):
+		return view.reloadPendingComments() // the error is already shown
 	case message.err != nil:
 		return nil // the error is already shown
 	case message.noPending:

@@ -384,7 +384,7 @@ func commentFailure(err error, what string) error {
 
 func (view *View) commentDeleted(message commentDeletedMessage) tea.Cmd {
 	view.writeDone()
-	if isStale(message.err) {
+	if isStale(message.err) || userinterface.IsWriteTimeout(message.err) {
 		return view.reloadPendingComments() // the error is already shown
 	}
 	if message.err != nil {

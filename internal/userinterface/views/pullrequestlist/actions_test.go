@@ -25,6 +25,9 @@ func TestActionsCoverEveryBinding(test *testing.T) {
 	view := New(nil, github.Repository{}, nil, theme.Default(), Options{})
 	named := map[uintptr]int{}
 	for _, action := range view.bindings.actions() {
+		if action.Binding == nil {
+			continue // a command with no key
+		}
 		named[reflect.ValueOf(action.Binding).Pointer()]++
 	}
 	value := reflect.ValueOf(&view.bindings).Elem()

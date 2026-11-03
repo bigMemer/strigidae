@@ -41,16 +41,16 @@ const (
 )
 
 // Group returns the group the result sorts into: failing, then running or
-// queued, then passing, then skipped or neutral.
+// queued, then passing, then skipped, neutral or cancelled.
 func (result CheckResult) Group() CheckGroup {
 	switch result {
-	case CheckFailed, CheckCancelled, CheckTimedOut, CheckActionRequired:
+	case CheckFailed, CheckTimedOut, CheckActionRequired:
 		return CheckGroupFailing
 	case CheckRunning, CheckQueued:
 		return CheckGroupPending
 	case CheckPassed:
 		return CheckGroupPassing
-	case CheckSkipped, CheckNeutral:
+	case CheckSkipped, CheckNeutral, CheckCancelled:
 		return CheckGroupInactive
 	}
 	return CheckGroupInactive

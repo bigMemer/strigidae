@@ -13,6 +13,7 @@ type PullRequestListStyles struct {
 	Number           lipgloss.Style
 	Author           lipgloss.Style
 	Repository       lipgloss.Style // owner/name where a list spans repositories
+	Branch           lipgloss.Style // head and base branch names
 	Age              lipgloss.Style
 	Draft            lipgloss.Style // the draft marker
 	Approved         lipgloss.Style // review decision glyphs
@@ -33,6 +34,7 @@ func newPullRequestListStyles(roles Roles) PullRequestListStyles {
 		Number:           foreground(roles.Warning),
 		Author:           muted,
 		Repository:       muted,
+		Branch:           muted,
 		Age:              muted,
 		Draft:            muted.Italic(true),
 		Approved:         foreground(roles.Success),

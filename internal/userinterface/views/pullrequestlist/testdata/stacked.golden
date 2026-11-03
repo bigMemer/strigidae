@@ -1,0 +1,7 @@
+ All   Me 
+    #  TITLE                      HEAD         BASE    AUTHOR   UPD  CI  RV  CMT
+  #10  Tidy the readme            docs/readme  main    alice    now            0
+   #1  First step                 step-1       main    alice     3h            0
+>  #2    Second step              step-2       step-1  alice     2h            0
+   #3      [draft] Third step     step-3       step-2  alice     1h            0
+   #5    Sibling of second        sibling      step-1  alice     4h            0

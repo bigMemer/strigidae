@@ -123,6 +123,9 @@ func (view *View) sendPullRequest(identifier, title, body string) tea.Cmd {
 // pullRequestUpdated shows the new text at once and refreshes from GitHub.
 func (view *View) pullRequestUpdated(message pullRequestUpdatedMessage) tea.Cmd {
 	view.writeDone()
+	if userinterface.IsWriteTimeout(message.err) {
+		return view.reloadPullRequest() // the error is already shown
+	}
 	if message.err != nil {
 		return nil // the error is already shown
 	}

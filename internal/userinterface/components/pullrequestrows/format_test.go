@@ -34,7 +34,7 @@ func TestRelativeAge(test *testing.T) {
 
 func TestChecksMark(test *testing.T) {
 	activeTheme := theme.Default()
-	table := New(activeTheme, time.Now, false)
+	table := New(activeTheme, time.Now, Options{})
 	tests := []struct {
 		state github.CheckState
 		glyph string

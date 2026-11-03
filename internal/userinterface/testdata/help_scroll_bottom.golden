@@ -1,0 +1,14 @@
+Help  ? / esc to close  13–23 of 23                             
+                                                                
+zb       cursor line to the bottom            F11      action 11
+                                                                
+enter    open / select                                          
+o        open in browser                                        
+R        refresh                                                
+                                                                
+esc      cancel / clear                                         
+?        toggle help                                            
+:        command line (:q close, :qa quit)                      
+tab      complete a word, shift+tab back                        
+1-9      count: 11j, 3], 42G                                    
+ v  ? help  zq test sequence                                          

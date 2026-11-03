@@ -69,6 +69,10 @@ type Global struct {
 	// Count documents the count prefix ("11j"). It exists only for the help
 	// overlay: the Matcher parses counts itself, and Bindings leaves it out.
 	Count key.Binding
+	// Complete documents Tab on the command line. It exists only for the help
+	// overlay: the root takes the key itself while the command line is open,
+	// and Bindings leaves it out so tab stays unbound elsewhere.
+	Complete key.Binding
 }
 
 // DefaultGlobal returns the default vim-style global bindings.
@@ -98,6 +102,7 @@ func DefaultGlobal() Global {
 		Help:               bind("?", "?", "toggle help"),
 		Command:            bind(":", ":", "command line (:q close, :qa quit)"),
 		Count:              bind("1", "1-9", "count: 11j, 3], 42G"),
+		Complete:           bind("tab", "tab", "complete a word, shift+tab back"),
 	}
 }
 
@@ -110,7 +115,7 @@ func (global Global) Bindings() []key.Binding {
 	for _, bindings := range global.FullHelp() {
 		for _, binding := range bindings {
 			// Count is documentation only; a bare digit is never a binding.
-			if binding.Help().Key != global.Count.Help().Key {
+			if helpKey := binding.Help().Key; helpKey != global.Count.Help().Key && helpKey != global.Complete.Help().Key {
 				out = append(out, binding)
 			}
 		}
@@ -126,6 +131,6 @@ func (global Global) FullHelp() [][]key.Binding {
 		{global.Down, global.Up, global.Top, global.Bottom, global.HalfDown, global.HalfUp, global.PageDown, global.PageUp},
 		{global.ScrollCursorTop, global.ScrollCursorMiddle, global.ScrollCursorBottom},
 		{global.Select, global.Open, global.Refresh},
-		{global.Cancel, global.Help, global.Command, global.Count},
+		{global.Cancel, global.Help, global.Command, global.Complete, global.Count},
 	}
 }

@@ -51,6 +51,16 @@ func ExecRunner(ctx context.Context, directory string, arguments ...string) (str
 	return strings.TrimSpace(string(out)), nil
 }
 
+// CurrentBranch is the branch checked out in directory, or "" on a detached
+// head.
+func CurrentBranch(ctx context.Context, run Runner, directory string) (string, error) {
+	branch, err := run(ctx, directory, "branch", "--show-current")
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrNotCheckout, err)
+	}
+	return branch, nil
+}
+
 // Infer finds the GitHub repository for the checkout containing directory.
 //
 // A remote whose host knownHost rejects is skipped, so a mirror on another

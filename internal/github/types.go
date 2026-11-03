@@ -50,6 +50,9 @@ type PullRequest struct {
 	URL          string
 	HeadBranch   string
 	BaseBranch   string
+	// CrossRepository is true when the head branch lives in a fork, so a
+	// branch of the same name here is a different branch.
+	CrossRepository bool
 }
 
 // Label is a repository label.
@@ -164,7 +167,8 @@ type PullRequestDetail struct {
 	// Reviews are submitted review summaries, oldest first.
 	Reviews []Review
 	// CheckList holds the first 100 checks of the head commit, in GitHub's
-	// order; CheckTotal is how many there are in all.
+	// order, without runs that a later run of the same check replaced;
+	// CheckTotal is how many there are in all, likewise without those.
 	CheckList  []Check
 	CheckTotal int
 	// MergeState says whether conflicts, a stale branch or branch protection
@@ -330,9 +334,32 @@ const (
 	SubjectFile ThreadSubject = "FILE"
 )
 
+// LocalState says whether a review thread exists only inside strig (a plugin's
+// answer shown on the lines it was asked about) and, if so, how its answer
+// stands. GitHub never returns a local thread and none can be written back:
+// every action that writes to GitHub refuses one before it starts.
+type LocalState int
+
+// Local states. NotLocal, the zero value, is every thread GitHub knows.
+const (
+	NotLocal LocalState = iota
+	// LocalWaiting is a question whose answer has not come yet.
+	LocalWaiting
+	// LocalAnswered has its answer.
+	LocalAnswered
+	// LocalFailed has no answer: the plugin failed, timed out or said why not.
+	LocalFailed
+)
+
+// IsLocal reports whether the thread exists only inside strig.
+func (state LocalState) IsLocal() bool { return state != NotLocal }
+
 // ReviewThread is a conversation anchored to a line of a diff. Threads may
 // include the viewer's pending (draft) comments; see ReviewComment.Pending.
 type ReviewThread struct {
+	// Local marks a thread that exists only inside strig; see LocalState. A
+	// local thread is never resolved and has no GitHub identifier.
+	Local LocalState
 	// Identifier is the node ID used to reply to the thread.
 	Identifier  string
 	SubjectType ThreadSubject

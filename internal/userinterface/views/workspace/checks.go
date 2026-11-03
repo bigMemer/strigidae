@@ -23,7 +23,7 @@ import (
 func pickerLabelWidth(width int) int { return min(64, width) - 6 }
 
 // sortedChecks orders checks failing first, then running or queued, then
-// passing, then skipped or neutral, alphabetically within each group. It
+// passing, then skipped, neutral or cancelled, alphabetically within each group. It
 // returns a copy.
 func sortedChecks(checks []github.Check) []github.Check {
 	out := slices.Clone(checks)

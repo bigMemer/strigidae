@@ -36,6 +36,8 @@ func makePullRequests(count int) []github.PullRequest {
 			Number:     count - i,
 			Title:      fmt.Sprintf("Change number %d", count-i),
 			Author:     "alice",
+			HeadBranch: fmt.Sprintf("feat-%d", count-i),
+			BaseBranch: "main",
 			State:      github.PullRequestStateOpen,
 			URL:        fmt.Sprintf("https://github.com/acme/widgets/pull/%d", count-i),
 			UpdatedAt:  testNow.Add(-time.Duration(i) * time.Hour),
@@ -380,6 +382,8 @@ func TestHostileTextIsNeutralised(test *testing.T) {
 	pullRequests := makePullRequests(1)
 	pullRequests[0].Title = "evil\x1b]52;c;aGk=\x07\x1b[2J title\u202e\u009b"
 	pullRequests[0].Author = "a\x1b[31muthor"
+	pullRequests[0].HeadBranch = "head\x1b]52;c;aGk=\x07\x1b[2J\u202e\u009b"
+	pullRequests[0].BaseBranch = "base\x1b[31m\u202e"
 	view := loadedView(test, fakeWith(pullRequests), nil)
 	out := ansi.Strip(view.Render(80, 6))
 	for _, character := range out {
@@ -406,6 +410,9 @@ func goldenPullRequests() []github.PullRequest {
 	pullRequests[3].ReviewDecision = github.ReviewDecisionReviewRequired
 	pullRequests[3].Draft = true
 	pullRequests[3].Title = "Draft with a very long title that gets truncated after the marker is shown"
+	pullRequests[0].HeadBranch = "feature/an-extraordinarily-long-branch-name"
+	pullRequests[0].BaseBranch = "release/2026.01-long-term-support"
+	pullRequests[1].BaseBranch = "develop"
 	pullRequests[4].UpdatedAt = testNow.Add(-50 * time.Hour)
 	pullRequests[5].UpdatedAt = testNow.Add(-100 * 24 * time.Hour)
 	return pullRequests
@@ -431,6 +438,9 @@ func TestGolden(test *testing.T) {
 		{"medium", func(test *testing.T) *View {
 			return loadedView(test, fakeWith(goldenPullRequests()), nil)
 		}, 56, 10},
+		{"wide", func(test *testing.T) *View {
+			return loadedView(test, fakeWith(goldenPullRequests()), nil)
+		}, 120, 10},
 		{"narrow", func(test *testing.T) *View {
 			return loadedView(test, fakeWith(goldenPullRequests()), nil)
 		}, 36, 10},

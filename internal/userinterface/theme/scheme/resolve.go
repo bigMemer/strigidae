@@ -29,6 +29,11 @@ func Bundled() []string {
 	return slugs
 }
 
+// Names lists every `theme:` value that names a theme rather than a file: the
+// bundled slugs, then Terminal. `strig --list-themes` prints it and Tab on the
+// command line completes `:theme` from it.
+func Names() []string { return append(Bundled(), Terminal) }
+
 // Terminal is the `theme:` value that builds the theme from the terminal's
 // own palette, asked for when strig starts.
 const Terminal = "terminal"

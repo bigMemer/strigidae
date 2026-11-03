@@ -10,7 +10,7 @@ import (
 // writes declares its kind and asks the guard before it starts, and again at
 // each point where it is re-admitted (after a yes, or after a re-read).
 // Actions that write nothing to GitHub (`m`, folds, navigation,
-// `:copy-filename`, `:copy-url`, `:checks`, `:ask`) have no kind and no guard.
+// `:copy-filename`, `:copy-url`, `:checks`) have no kind and no guard.
 type writeKind int
 
 const (
@@ -34,6 +34,13 @@ const (
 	writeDiscard
 	// writePullRequest: `:edit-pull-request`. It needs no diff.
 	writePullRequest
+	// usePluginLines and usePluginPullRequest are not writes: the commands of
+	// plugins (see plugins.go) write nothing to GitHub, so nothing blocks them
+	// but missing data. They share the guard so the "not loaded" notices are
+	// the built-ins' own. A `lines` plugin needs the diff; a `pull-request`
+	// one does not.
+	usePluginLines
+	usePluginPullRequest
 )
 
 // guardRule is what one kind of write needs and what blocks it.
@@ -64,6 +71,9 @@ var guardTable = map[writeKind]guardRule{
 	writeMerge:           {needsDiff: true, busy: allBusy},
 	writeDiscard:         {busy: allBusy},
 	writePullRequest:     {busy: allBusy},
+
+	usePluginLines:       {needsDiff: true},
+	usePluginPullRequest: {},
 }
 
 // ruleFor is the rule of a kind. writeNone means "no guard" only to the

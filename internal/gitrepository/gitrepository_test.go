@@ -154,6 +154,33 @@ func TestInfer(test *testing.T) {
 	}
 }
 
+func TestCurrentBranch(test *testing.T) {
+	for _, testCase := range []struct {
+		name    string
+		output  string
+		err     error
+		want    string
+		wantErr bool
+	}{
+		{"on a branch", "feat/x", nil, "feat/x", false},
+		{"detached head", "", nil, "", false},
+		{"not a checkout", "", errors.New("fatal"), "", true},
+	} {
+		test.Run(testCase.name, func(test *testing.T) {
+			run := func(_ context.Context, _ string, arguments ...string) (string, error) {
+				if strings.Join(arguments, " ") != "branch --show-current" {
+					test.Errorf("arguments = %v", arguments)
+				}
+				return testCase.output, testCase.err
+			}
+			got, err := CurrentBranch(context.Background(), run, "/work")
+			if (err != nil) != testCase.wantErr || got != testCase.want {
+				test.Errorf("got %q, %v; want %q, error %v", got, err, testCase.want, testCase.wantErr)
+			}
+		})
+	}
+}
+
 func TestExecRunnerScrubsTokens(test *testing.T) {
 	test.Setenv("GH_TOKEN", "secret")
 	test.Setenv("GITHUB_TOKEN", "secret")

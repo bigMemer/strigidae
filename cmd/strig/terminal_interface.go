@@ -8,13 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 	cliBrowser "github.com/cli/browser"
 
-	"github.com/MikePors/strigidae/internal/beefis"
 	"github.com/MikePors/strigidae/internal/clipboard"
 	"github.com/MikePors/strigidae/internal/environment"
 	"github.com/MikePors/strigidae/internal/logging"
@@ -41,20 +39,8 @@ func runTerminalInterface(application application, stderr io.Writer) error {
 
 	built, notice := application.buildTheme(logger, askTerminal)
 	application.theme = built
-	if application.beefis {
-		unit, err := beefis.Start("beefis", environment.Scrub(os.Environ()), logLines{logger: logger})
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := unit.Close(); err != nil {
-				logger.Warn("beefis unit ended", "err", err)
-			}
-		}()
-		application.questions = workspace.NewQuestions(unit)
-	}
 	model := userinterface.New(firstView(application), application.theme, application.userInterfaceOptions(logger, notice))
-	if _, err := tea.NewProgram(model).Run(); err != nil {
+	if err := runProgram(tea.NewProgram(model), model); err != nil {
 		logger.Error("program failed", "err", err)
 		return fmt.Errorf("run: %w", err)
 	}
@@ -65,27 +51,19 @@ func runTerminalInterface(application application, stderr io.Writer) error {
 // userInterfaceOptions is what the shell starts with: the logger, the startup
 // notice, and the options the config file set.
 func (application application) userInterfaceOptions(logger *slog.Logger, notice string) userinterface.Options {
-	userInterfaceOptions := userinterface.Options{Logger: logger, Notice: notice, StartingOptions: application.config.Options, ViewCommands: viewCommands()}
-	if application.questions != nil {
-		userInterfaceOptions.Companion = application.questions
+	runner, commands, names := application.pluginOptions(logger)
+	return userinterface.Options{
+		Logger: logger, Notice: notice, StartingOptions: application.config.Options,
+		ViewCommands: append(viewCommands(), names...),
+		PluginRunner: runner, PluginCommands: commands,
 	}
-	return userInterfaceOptions
-}
-
-// logLines logs what a program strig started writes to stderr, which must
-// never reach the terminal the TUI owns.
-type logLines struct{ logger *slog.Logger }
-
-func (writer logLines) Write(text []byte) (int, error) {
-	writer.logger.Info("beefis", "stderr", strings.TrimRight(string(text), "\n"))
-	return len(text), nil
 }
 
 // viewCommands collects the command names every view package declares, so the
 // shell can tell a command another view owns from a word that is no command.
 // A view with commands adds its Commands here.
 func viewCommands() []string {
-	return workspace.Commands()
+	return append(workspace.Commands(), pullrequestlist.Commands()...)
 }
 
 // askTerminal asks the controlling terminal for its palette, before the
@@ -103,9 +81,9 @@ func askTerminal() (terminalpalette.Reply, error) {
 // or in one with no GitHub remote), else the repository's pull request list.
 func firstView(application application) userinterface.View {
 	if application.dashboard {
-		return dashboard.New(application.client, application.config.Tabs, application.theme, dashboard.Options{Notice: application.notice, Timeouts: application.timeouts(), Clipboard: systemClipboard(), Questions: application.questions})
+		return dashboard.New(application.client, application.config.Tabs, application.theme, dashboard.Options{Notice: application.notice, Timeouts: application.timeouts(), Clipboard: systemClipboard()})
 	}
-	return pullrequestlist.New(application.client, application.repository, application.config.Tabs, application.theme, pullrequestlist.Options{PullRequest: application.pullRequest, Timeouts: application.timeouts(), Clipboard: systemClipboard(), Questions: application.questions})
+	return pullrequestlist.New(application.client, application.repository, application.config.Tabs, application.theme, pullrequestlist.Options{PullRequest: application.pullRequest, Timeouts: application.timeouts(), Clipboard: systemClipboard(), CurrentBranch: application.currentBranch})
 }
 
 // systemClipboard is the real clipboard tool lookup.
@@ -137,4 +115,12 @@ func (application application) timeouts() userinterface.Timeouts {
 func silenceBrowser() {
 	cliBrowser.Stdout = io.Discard
 	cliBrowser.Stderr = io.Discard
+}
+
+// runProgram runs the program and then ends the plugin runs, on every path
+// out of Run: a signal ends Bubble Tea without the model seeing a quit.
+func runProgram(program *tea.Program, model *userinterface.Model) error {
+	_, err := program.Run()
+	model.Close()
+	return err
 }

@@ -287,3 +287,20 @@ func TestEnterOnAnEmptyPromptRepeatsTheLastSearch(test *testing.T) {
 		test.Errorf("cursor = %d, want the first match at or after row 2", got)
 	}
 }
+
+func TestSearchFindsABranchName(test *testing.T) {
+	rows := searchRows()
+	rows[2].HeadBranch = "hotfix/login"
+	rows[4].BaseBranch = "release/2.0"
+	view := loadedView(test, fakeWith(rows), nil)
+	press(view, "/")
+	for _, testCase := range []struct {
+		text string
+		want int
+	}{{"hotfix", 2}, {"release/2", 4}} {
+		typeSearch(view, testCase.text)
+		if got := view.current().window.Cursor(); got != testCase.want {
+			test.Errorf("search %q: cursor = %d, want %d", testCase.text, got, testCase.want)
+		}
+	}
+}

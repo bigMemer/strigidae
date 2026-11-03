@@ -234,6 +234,9 @@ func (view *View) posted(message postedMessage) tea.Cmd {
 	if isStale(message.err) {
 		return view.staleEdit(message)
 	}
+	if userinterface.IsWriteTimeout(message.err) {
+		return view.reloadAfterPost(message.target.kind) // the draft stays; GitHub may have the comment
+	}
 	if message.err != nil {
 		return nil // the draft stays; the command already reported the error
 	}
@@ -241,15 +244,31 @@ func (view *View) posted(message postedMessage) tea.Cmd {
 	if view.drafts[message.target.draftKey()] == message.body {
 		delete(view.drafts, message.target.draftKey())
 	}
-	switch message.target.kind {
+	return tea.Batch(userinterface.Info(postedNotice(message.target.kind)), view.reloadAfterPost(message.target.kind))
+}
+
+// postedNotice is the status text for a comment of the given kind that was saved.
+func postedNotice(kind targetKind) string {
+	switch kind {
 	case kindReply:
-		return tea.Batch(userinterface.Info("Reply posted"), view.reloadThreads())
+		return "Reply posted"
 	case kindInline:
-		return tea.Batch(userinterface.Info("Pending comment added"), view.reloadPendingComments())
+		return "Pending comment added"
 	case kindEdit:
-		return tea.Batch(userinterface.Info("Comment updated"), view.reloadPendingComments())
+		return "Comment updated"
 	}
-	return tea.Batch(userinterface.Info("Comment posted"), view.reloadPullRequest())
+	return "Comment posted"
+}
+
+// reloadAfterPost refreshes what a comment of the given kind changes.
+func (view *View) reloadAfterPost(kind targetKind) tea.Cmd {
+	switch kind {
+	case kindReply:
+		return view.reloadThreads()
+	case kindInline, kindEdit:
+		return view.reloadPendingComments()
+	}
+	return view.reloadPullRequest()
 }
 
 // threadLocation is "path:line" for a thread.
@@ -264,9 +283,10 @@ func threadLocation(thread github.ReviewThread) string {
 	return thread.Path + ":" + strconv.Itoa(line)
 }
 
-// execEditor is the default EditFunction: a temporary file opened in the user's
-// editor, with the TUI suspended meanwhile.
-func execEditor(initial string, done func(string, error) tea.Msg) tea.Cmd {
+// ExecEditor is the default EditFunction (also used by the pull request
+// list): a temporary file opened in the user's editor, with the TUI suspended
+// meanwhile.
+func ExecEditor(initial string, done func(string, error) tea.Msg) tea.Cmd {
 	return func() tea.Msg {
 		session, err := editor.New(initial, os.Getenv)
 		if err != nil {

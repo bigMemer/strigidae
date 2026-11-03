@@ -48,3 +48,11 @@ tabs:
         limit: 10
         sort: created
         order: desc
+
+# Command plugins: each becomes a command that runs your own program. Plugins
+# are read only from this file. See docs/plugins.md.
+# plugins:
+#   - command: ask               # becomes :ask
+#     on_run: [strig-ask]        # the program and its arguments
+#     target: lines              # lines or pull-request
+#     timeout: 120s              # optional, default 60s

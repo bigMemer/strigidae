@@ -1,8 +1,8 @@
  All   Me 
-    #  TITLE                                           AUTHOR   UPD  CI  RV  CMT
-   #6  Change number 6                                 alice    14h            0
-   #5  Change number 5                                 alice    15h            0
-   #4  Change number 4                                 alice    16h            0
-   #3  Change number 3                                 alice    17h            0
-   #2  Change number 2                                 alice    18h            0
->  #1  Change number 1                                 alice    19h            0
+    #  TITLE                            HEAD     BASE  AUTHOR   UPD  CI  RV  CMT
+   #6  Change number 6                  feat-6   main  alice    14h            0
+   #5  Change number 5                  feat-5   main  alice    15h            0
+   #4  Change number 4                  feat-4   main  alice    16h            0
+   #3  Change number 3                  feat-3   main  alice    17h            0
+   #2  Change number 2                  feat-2   main  alice    18h            0
+>  #1  Change number 1                  feat-1   main  alice    19h            0

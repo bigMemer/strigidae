@@ -141,9 +141,28 @@ func TestCommandsAreHandledAndOthersAreNot(test *testing.T) {
 	if command, handled := view.Command("frobnicate", ""); handled || command != nil {
 		test.Error("an unknown command was handled")
 	}
-	want := []string{"analysis", "approve", "ask", "checks", "copy-filename", "copy-url", "delete-comment", "discard-review", "edit-comment", "edit-pull-request", "lens", "merge", "next-span", "previous-span", "react", "request-changes", "resolve", "review", "unresolve"}
+	want := []string{"analysis", "approve", "checks", "copy-filename", "copy-url", "delete-comment", "discard-review", "edit-comment", "edit-pull-request", "lens", "merge", "next-span", "previous-span", "react", "request-changes", "resolve", "review", "unresolve"}
 	if diff := cmp.Diff(want, slices.Sorted(slices.Values(names))); diff != "" {
 		test.Errorf("commands (-want +got):\n%s", diff)
+	}
+}
+
+// CommandNames is what Tab offers: every command the view handles, plugins
+// included, and only those.
+func TestCommandNamesAreTheCommandsTheViewHandles(test *testing.T) {
+	view := newHarness(test, 100, 24).view
+	if diff := cmp.Diff(Commands(), view.CommandNames()); diff != "" {
+		test.Errorf("without plugins (-want +got):\n%s", diff)
+	}
+	view.pluginCommands = pluginCommands
+	names := view.CommandNames()
+	if diff := cmp.Diff(append(Commands(), "ask", "summarize"), names); diff != "" {
+		test.Errorf("with plugins (-want +got):\n%s", diff)
+	}
+	for _, name := range names {
+		if _, handled := view.Command(name, ""); !handled {
+			test.Errorf(":%s is offered but not handled", name)
+		}
 	}
 }
 

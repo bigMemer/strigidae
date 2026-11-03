@@ -1,0 +1,10 @@
+ All   Me 
+   #  TITLE                          HEAD                      BASE                  AUTHOR             UPD  CI  RV  CMT
+> #8  Add a really quite extraordi…  feature/an-extraordinar…  release/2026.01-lon…  someone-with-a-…   now  ✓   ✓     4
+  #7  [draft] WIP: rework the pars…  feat-7                    develop               alice               1h  ●         0
+  #6  Change number 6                feat-6                    main                  alice               2h  ✗   ✗   99+
+  #5  [draft] Draft with a very lo…  feat-5                    main                  alice               3h      ?     0
+  #2  Change number 2                feat-2                    main                  alice               6h            0
+  #1  Change number 1                feat-1                    main                  alice               7h            0
+  #4  Change number 4                feat-4                    main                  alice               2d            0
+  #3  Change number 3                feat-3                    main                  alice              3mo            0
