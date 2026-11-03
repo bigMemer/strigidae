@@ -326,6 +326,8 @@ func TestPluginRequest(test *testing.T) {
 			testCase.want.Repository = plugins.Repository{Host: "example.test", Owner: "acme", Name: "widgets"}
 			testCase.want.Number = 7
 			testCase.want.Head = headSHA
+			testCase.want.HeadRef, testCase.want.URL = "feat/retry", "https://example.test/acme/widgets/pull/7"
+			testCase.want.Base = plugins.Branch{Ref: "main", SHA: "bbbb2222"}
 			if diff := cmp.Diff(testCase.want, got); diff != "" {
 				test.Errorf("request (-want +got):\n%s", diff)
 			}

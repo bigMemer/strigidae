@@ -210,3 +210,22 @@ func TestExecRunnerScrubsTokens(test *testing.T) {
 		test.Errorf("STRIG_TEST_KEPT was dropped:\n%s", output)
 	}
 }
+
+func TestTopLevel(test *testing.T) {
+	for _, testCase := range []struct {
+		name        string
+		hasTopLevel bool
+		want        string
+		wantErr     error
+	}{
+		{"in a checkout", true, "/work/repo", nil},
+		{"outside a checkout", false, "", ErrNotCheckout},
+	} {
+		test.Run(testCase.name, func(test *testing.T) {
+			got, err := TopLevel(context.Background(), fakeGit(testCase.hasTopLevel, nil), "/work/sub")
+			if !errors.Is(err, testCase.wantErr) || got != testCase.want {
+				test.Errorf("TopLevel = %q, %v; want %q, %v", got, err, testCase.want, testCase.wantErr)
+			}
+		})
+	}
+}

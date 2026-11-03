@@ -9,6 +9,7 @@ import (
 	"github.com/MikePors/strigidae/internal/config"
 	"github.com/MikePors/strigidae/internal/github"
 	"github.com/MikePors/strigidae/internal/gitrepository"
+	"github.com/MikePors/strigidae/internal/userinterface"
 	"github.com/MikePors/strigidae/internal/userinterface/theme"
 	"github.com/MikePors/strigidae/internal/userinterface/theme/scheme"
 	"github.com/MikePors/strigidae/internal/userinterface/theme/terminalpalette"
@@ -39,6 +40,8 @@ type application struct {
 	// config is the loaded config file: the dashboard's tabs and sections, and
 	// the yes/no options it sets.
 	config config.Config
+	// checkout is the checkout strig was started in, for plugin requests.
+	checkout userinterface.Checkout
 	// currentBranch is the checkout's branch, empty with -R, on a detached
 	// head or outside a checkout.
 	currentBranch string
@@ -66,7 +69,26 @@ func newApplication(repositoryFlag string, configuration config.Config, dependen
 	if err != nil {
 		return application{}, err
 	}
-	return application{client: client, repository: target.Repository, theme: theme.Default(), dashboard: dashboard, notice: notice, config: configuration, currentBranch: checkoutBranch(repositoryFlag, dashboard, dependencies)}, nil
+	return application{client: client, repository: target.Repository, theme: theme.Default(), dashboard: dashboard, notice: notice, config: configuration, currentBranch: checkoutBranch(repositoryFlag, dashboard, dependencies), checkout: workingCheckout(dependencies)}, nil
+}
+
+// workingCheckout is the checkout strig was started in, for plugin requests
+// about its repository; the zero value outside one. Unlike the current branch
+// it is kept with -R: the root compares it with each request's repository.
+func workingCheckout(dependencies dependencies) userinterface.Checkout {
+	directory, err := dependencies.getWorkingDirectory()
+	if err != nil {
+		return userinterface.Checkout{}
+	}
+	remote, err := gitrepository.Infer(context.Background(), dependencies.runner, directory, dependencies.knownHost)
+	if err != nil {
+		return userinterface.Checkout{}
+	}
+	top, err := gitrepository.TopLevel(context.Background(), dependencies.runner, directory)
+	if err != nil {
+		return userinterface.Checkout{}
+	}
+	return userinterface.Checkout{Directory: top, Host: remote.Host, Repository: remote.Repository}
 }
 
 // checkoutBranch is the branch of the checkout strig was started in, which

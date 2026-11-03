@@ -50,6 +50,8 @@ type PullRequest struct {
 	URL          string
 	HeadBranch   string
 	BaseBranch   string
+	// BaseSHA is the tip of the base branch when the pull request was read.
+	BaseSHA string
 	// CrossRepository is true when the head branch lives in a fork, so a
 	// branch of the same name here is a different branch.
 	CrossRepository bool

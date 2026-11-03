@@ -173,6 +173,10 @@ looks like this for a `lines` plugin:
   "repository": {"host": "github.com", "owner": "acme", "name": "widgets"},
   "number": 7,
   "head": "4f9c0e1d...",
+  "headRef": "fix/retry",
+  "base": {"ref": "main", "sha": "9a8b7c6d..."},
+  "url": "https://github.com/acme/widgets/pull/7",
+  "checkout": "/home/me/src/widgets",
   "target": {
     "path": "internal/sync/client.go",
     "side": "RIGHT",
@@ -191,6 +195,10 @@ looks like this for a `lines` plugin:
 | `repository` | `host` (taken from the pull request's address, so GitHub Enterprise works), `owner` and `name` |
 | `number` | The pull request number |
 | `head` | The head commit the pull request had when the command was run. For `lines`, the commit the diff on screen belongs to |
+| `headRef` | The head branch's name |
+| `base` | The base branch: `ref`, its name, and `sha`, its tip when strig last read the pull request (the merge base is `git merge-base <base.sha> <head>` in a checkout) |
+| `url` | The pull request's address on GitHub |
+| `checkout` | The top directory of the git checkout strig was started in, when that checkout's remote (`upstream`, else `origin`) is the pull request's repository, also with `-R`. Absent otherwise. The plugin's working directory is strig's, which can be a subdirectory of it |
 | `target` | Absent for `target: pull-request` plugins. For `lines`: |
 | `target.path` | The file's path in the pull request |
 | `target.side` | `RIGHT` for lines of the new file (added and unchanged lines), `LEFT` for the old file (a selection containing a deleted line) |
@@ -201,7 +209,7 @@ looks like this for a `lines` plugin:
 For a `target: pull-request` plugin the object is the same without `target`:
 
 ```json
-{"protocol": 1, "command": "summarize", "arguments": "", "repository": {"host": "github.com", "owner": "acme", "name": "widgets"}, "number": 7, "head": "4f9c0e1d..."}
+{"protocol": 1, "command": "summarize", "arguments": "", "repository": {"host": "github.com", "owner": "acme", "name": "widgets"}, "number": 7, "head": "4f9c0e1d...", "headRef": "fix/retry", "base": {"ref": "main", "sha": "9a8b7c6d..."}, "url": "https://github.com/acme/widgets/pull/7"}
 ```
 
 A plugin should ignore fields it does not know. A plugin does not have to read

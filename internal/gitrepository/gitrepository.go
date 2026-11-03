@@ -61,6 +61,15 @@ func CurrentBranch(ctx context.Context, run Runner, directory string) (string, e
 	return branch, nil
 }
 
+// TopLevel is the top directory of the checkout containing directory.
+func TopLevel(ctx context.Context, run Runner, directory string) (string, error) {
+	top, err := run(ctx, directory, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrNotCheckout, err)
+	}
+	return top, nil
+}
+
 // Infer finds the GitHub repository for the checkout containing directory.
 //
 // A remote whose host knownHost rejects is skipped, so a mirror on another

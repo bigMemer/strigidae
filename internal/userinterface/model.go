@@ -52,6 +52,8 @@ type Options struct {
 	// PluginCommands are the configured plugins' commands. Views are told
 	// through PluginsMessage; the names must also be in ViewCommands.
 	PluginCommands []PluginCommand
+	// Checkout is the checkout strig runs in, if any, for plugin requests.
+	Checkout Checkout
 	// PluginQuitWait is how long quitting waits for plugin runs it has
 	// cancelled; DefaultPluginQuitWait by default.
 	PluginQuitWait time.Duration
@@ -95,6 +97,7 @@ type Model struct {
 	// Plugin runs belong to the root: closing a view does not cancel one.
 	pluginRunner   PluginRunner
 	pluginCommands []PluginCommand
+	checkout       Checkout
 	pluginQuitWait time.Duration
 	pluginContext  context.Context // made with the first run; cancelled at quit
 	pluginCancel   context.CancelFunc
@@ -173,6 +176,7 @@ func New(root View, activeTheme theme.Theme, startup Options) *Model {
 		viewCommands:    startup.ViewCommands,
 		pluginRunner:    startup.PluginRunner,
 		pluginCommands:  startup.PluginCommands,
+		checkout:        startup.Checkout,
 		pluginQuitWait:  startup.PluginQuitWait,
 		pluginRuns:      map[int]pluginRun{},
 		commandLine:     newCommandLine(activeTheme),

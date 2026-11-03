@@ -60,8 +60,11 @@ func (view *View) runPlugin(command userinterface.PluginCommand, call invocation
 			Owner: view.repository.Owner,
 			Name:  view.repository.Name,
 		},
-		Number: view.number,
-		Head:   view.detail.HeadSHA,
+		Number:  view.number,
+		Head:    view.detail.HeadSHA,
+		HeadRef: view.detail.HeadBranch,
+		Base:    plugins.Branch{Ref: view.detail.BaseBranch, SHA: view.detail.BaseSHA},
+		URL:     view.detail.URL,
 	}
 	if command.Target == config.TargetLines {
 		target, refusal := view.linesTarget(call.target.lines)

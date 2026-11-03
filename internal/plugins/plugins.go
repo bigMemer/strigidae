@@ -94,9 +94,23 @@ type Request struct {
 	Number int `json:"number"`
 	// Head is the head commit the pull request had when the user ran the command.
 	Head string `json:"head"`
+	// HeadRef is the head branch's name, Base the base branch, and URL the
+	// pull request's address on GitHub, as last read.
+	HeadRef string `json:"headRef"`
+	Base    Branch `json:"base"`
+	URL     string `json:"url"`
+	// Checkout is the top directory of the git checkout strig runs in, when
+	// that checkout is of the pull request's repository; empty otherwise.
+	Checkout string `json:"checkout,omitempty"`
 	// Target is what the user pointed at. It is absent for a plugin whose
 	// target is the pull request as a whole.
 	Target *Target `json:"target,omitempty"`
+}
+
+// Branch is a branch and the commit at its tip.
+type Branch struct {
+	Ref string `json:"ref"`
+	SHA string `json:"sha"`
 }
 
 // Repository names the repository a request is about.

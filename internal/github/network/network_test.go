@@ -249,6 +249,7 @@ func TestGetPullRequest(test *testing.T) {
 			State: github.PullRequestStateOpen, ReviewDecision: github.ReviewDecisionChangesRequested, CommentCount: 2,
 			CreatedAt: mustTime(test, "2026-10-18T09:00:00Z"), UpdatedAt: mustTime(test, "2026-10-19T08:30:00Z"),
 			URL: "https://github.com/MikePors/strigidae/pull/27", HeadBranch: "feat/4-github-client", BaseBranch: "main",
+			BaseSHA: "fedcba9876543210fedcba9876543210fedcba98",
 		},
 		ViewerDidAuthor: true,
 		ViewerCanUpdate: true,
