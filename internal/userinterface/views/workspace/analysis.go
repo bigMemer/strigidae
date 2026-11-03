@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -32,6 +33,7 @@ type pullRequestKey struct {
 type loadedAnalysis struct {
 	content analysis.Analysis
 	path    string
+	raw     []byte // the file as read, to tell a reload that changed nothing
 }
 
 // NewAnalyses returns an empty record of analyses.
@@ -59,10 +61,12 @@ func analysisPath(number int) string {
 
 // analysisReadMessage is the result of reading an analysis file.
 type analysisReadMessage struct {
-	owner   *View
-	path    string
-	content analysis.Analysis
-	err     error
+	owner    *View
+	path     string
+	explicit bool // asked for with :analysis, so reported even when unchanged
+	raw      []byte
+	content  analysis.Analysis
+	err      error
 }
 
 // analysis returns the analysis loaded for this pull request, or nil.
@@ -86,6 +90,18 @@ func (view *View) autoloadAnalysis() tea.Cmd {
 	return view.readAnalysis(analysisPath(view.number), false)
 }
 
+// rereadAnalysis reads the analysis again when the pull request is
+// reloaded: the file the loaded one came from, or the conventional file when
+// none is loaded, so one written while the pull request was open (by a
+// plugin, say) is picked up. An unchanged or missing file says nothing.
+func (view *View) rereadAnalysis() tea.Cmd {
+	path := analysisPath(view.number)
+	if loaded := view.analysis(); loaded != nil {
+		path = loaded.path
+	}
+	return view.readAnalysis(path, false)
+}
+
 // analysisCommand is :analysis [path]; without a path it reads the
 // conventional file.
 func (view *View) analysisCommand(arguments string) tea.Cmd {
@@ -106,10 +122,10 @@ func (view *View) readAnalysis(path string, explicit bool) tea.Cmd {
 			if !explicit && errors.Is(err, fs.ErrNotExist) {
 				return nil
 			}
-			return analysisReadMessage{owner: owner, path: path, err: err}
+			return analysisReadMessage{owner: owner, path: path, explicit: explicit, err: err}
 		}
 		content, err := analysis.Parse(data)
-		return analysisReadMessage{owner: owner, path: path, content: content, err: err}
+		return analysisReadMessage{owner: owner, path: path, explicit: explicit, raw: data, content: content, err: err}
 	}
 }
 
@@ -119,12 +135,15 @@ func (view *View) analysisRead(message analysisReadMessage) tea.Cmd {
 	if message.err != nil {
 		return userinterface.Error(terminaltext.SafeError(fmt.Errorf("analysis %s: %w", message.path, message.err)))
 	}
+	if loaded := view.analysis(); !message.explicit && loaded != nil && loaded.path == message.path && bytes.Equal(loaded.raw, message.raw) {
+		return nil
+	}
 	pullRequest := message.content.PullRequest
 	if !strings.EqualFold(pullRequest.Repository, view.repository.String()) || pullRequest.Number != view.number {
 		return userinterface.Error(errors.New(terminaltext.Clean(fmt.Sprintf(
 			"analysis %s is for %s#%d, not %s#%d", message.path, pullRequest.Repository, pullRequest.Number, view.repository, view.number))))
 	}
-	view.analyses.loaded[pullRequestKey{view.repository, view.number}] = &loadedAnalysis{content: message.content, path: message.path}
+	view.analyses.loaded[pullRequestKey{view.repository, view.number}] = &loadedAnalysis{content: message.content, path: message.path, raw: message.raw}
 	view.analysisChanged()
 	return userinterface.Info(view.analysisSummary())
 }

@@ -13,7 +13,20 @@ Line numbers on the `RIGHT` side are against `pr.head_sha`; on the `LEFT` side a
 
 - When a pull request opens, strig loads `.strig/analysis/<number>.json` relative to where it runs, if the file exists.
 - `:analysis <path>` loads any file; `:analysis` alone loads the conventional one again.
+- `R` (and a plugin's `reload` effect) reads the analysis again: the file the loaded one came from, or the conventional file when none is loaded. A file that has not changed reloads silently.
 - An analysis for another repository or pull request is refused. One made for another head than the diff on screen loads, marked stale: its line numbers may have moved.
+
+## Having one written
+
+strig does not write analyses. A command plugin can ([plugins.md](plugins.md)): a `target: pull-request` plugin that writes `.strig/analysis/<number>.json` under its working directory (strig's, so the same place strig looks) and prints a `reload` effect has the analysis loaded as soon as it finishes. beefis ships one, which asks the claude in strig's beefis tab to write it:
+
+```yaml
+plugins:
+  - command: analyze        # :analyze [what to focus on]
+    on_run: [beefis, strig-plugin, analyze]
+    target: pull-request
+    timeout: 15m
+```
 
 ## Reading through a lens
 

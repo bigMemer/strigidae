@@ -157,3 +157,46 @@ func TestAnalysesAreSharedAndReplaced(test *testing.T) {
 		test.Errorf("after a reload the head is %q, want the new file's", got)
 	}
 }
+
+func TestReloadRereadsTheAnalysis(test *testing.T) {
+	inliner := newInliner(test)
+	files := inliner.withFiles(map[string]string{})
+	inliner.run(inliner.view.Reload())
+	if inliner.view.analysis() != nil {
+		test.Fatal("an analysis appeared with no file")
+	}
+
+	// A plugin writes the conventional file, then asks for a reload.
+	files.content[".strig/analysis/7.json"] = analysisJSON("acme/widgets", 7, headSHA)
+	inliner.run(inliner.view.Reload())
+	if inliner.view.analysis() == nil {
+		test.Fatal("reload did not pick up the written analysis")
+	}
+	if got := inliner.lastInfo(); got != "analysis: 2 lenses, 3 segments" {
+		test.Errorf("notice = %q", got)
+	}
+
+	inliner.messages = nil
+	inliner.press("R")
+	if got := inliner.lastInfo(); got != "" {
+		test.Errorf("an unchanged analysis was announced again: %q", got)
+	}
+
+	files.content[".strig/analysis/7.json"] = analysisJSON("acme/widgets", 7, "newer")
+	inliner.press("R")
+	if got := inliner.view.analysis().content.PullRequest.HeadSHA; got != "newer" {
+		test.Errorf("R left head %q, want the rewritten file's", got)
+	}
+}
+
+func TestReloadRereadsTheFileTheAnalysisCameFrom(test *testing.T) {
+	inliner := newInliner(test)
+	files := inliner.withFiles(map[string]string{"review.json": analysisJSON("acme/widgets", 7, headSHA)})
+	command, _ := inliner.view.Command("analysis", "review.json")
+	inliner.run(command)
+	files.read = nil
+	inliner.run(inliner.view.Reload())
+	if len(files.read) != 1 || files.read[0] != "review.json" {
+		test.Errorf("reload read %q, want review.json", files.read)
+	}
+}

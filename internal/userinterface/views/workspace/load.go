@@ -87,6 +87,10 @@ func loadThreads(ctx context.Context, client github.Client, repository github.Re
 }
 
 // load starts a fresh load of the pull request and its diff.
+// refresh is R, and a plugin's reload: the pull request, its threads, and
+// its review analysis.
+func (view *View) refresh() tea.Cmd { return tea.Batch(view.load(), view.rereadAnalysis()) }
+
 func (view *View) load() tea.Cmd {
 	view.sequence++
 	view.diffPending = true
